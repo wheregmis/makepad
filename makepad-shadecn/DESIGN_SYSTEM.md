@@ -18,67 +18,79 @@ Simple primitives combine to create complex interfaces without breaking the desi
 
 ## Color Palette
 
-### Dark Theme (`theme_shadecn_dark`)
-
-**Backgrounds:**
-- `bg_primary`: `#0f172a` - Main background (Slate 900)
-- `bg_secondary`: `#1e293b` - Secondary background (Slate 800)
-- `bg_tertiary`: `#334155` - Tertiary background (Slate 700)
-
-**Foregrounds:**
-- `fg_primary`: `#f8fafc` - Main text (Slate 50)
-- `fg_secondary`: `#e2e8f0` - Secondary text (Slate 200)
-- `fg_tertiary`: `#cbd5e1` - Tertiary text (Slate 300)
-
-**Borders:**
-- `border_primary`: `#475569` - Main borders (Slate 600)
-- `border_secondary`: `#334155` - Secondary borders (Slate 700)
-
-**Component States:**
-- `bg_hover`: `#1e293b` - Hover state
-- `bg_active`: `#334155` - Active/pressed state
-- `bg_disabled`: `#1e293b` - Disabled state
-- `fg_disabled`: `#64748b` - Disabled text (Slate 500)
-
-**Semantic:**
-- `success`: `#22c55e` - Success/positive actions (Green)
-- `warning`: `#f59e0b` - Warning states (Amber)
-- `error`: `#ef4444` - Error/destructive actions (Red)
-- `info`: `#3b82f6` - Informational (Blue)
-
-**Primary Accent:**
-- `accent`: `#3b82f6` - Interactive elements (Blue)
+The color palette is based on OKLCH color space for improved consistency and perceptual uniformity. All colors are derived from shadecn/ui's default color system.
 
 ### Light Theme (`theme_shadecn_light`)
 
 **Backgrounds:**
-- `bg_primary`: `#ffffff` - Main background (White)
-- `bg_secondary`: `#f8fafc` - Secondary background (Slate 50)
-- `bg_tertiary`: `#f1f5f9` - Tertiary background (Slate 100)
+- `bg_primary`: `#ffffff` - `oklch(1 0 0)` - Main background (White)
+- `bg_secondary`: `#ffffff` - `oklch(1 0 0)` - Card background (White)
+- `bg_tertiary`: `#f7f7f7` - `oklch(0.97 0 0)` - Secondary/Muted background (Very light gray)
 
 **Foregrounds:**
-- `fg_primary`: `#0f172a` - Main text (Slate 900)
-- `fg_secondary`: `#1e293b` - Secondary text (Slate 800)
-- `fg_tertiary`: `#334155` - Tertiary text (Slate 700)
+- `fg_primary`: `#252525` - `oklch(0.145 0 0)` - Main text (Very dark gray)
+- `fg_secondary`: `#252525` - `oklch(0.145 0 0)` - Card text (Very dark gray)
+- `fg_tertiary`: `#8e8e8e` - `oklch(0.556 0 0)` - Muted text (Medium gray)
 
 **Borders:**
-- `border_primary`: `#e2e8f0` - Main borders (Slate 200)
-- `border_secondary`: `#cbd5e1` - Secondary borders (Slate 300)
+- `border_primary`: `#ebebeb` - `oklch(0.922 0 0)` - Main borders (Light gray)
+- `border_secondary`: `#ebebeb` - `oklch(0.922 0 0)` - Input borders (Light gray)
+
+**Primary Colors:**
+- `primary`: `#343434` - `oklch(0.205 0 0)` - Primary actions (Dark gray/Black)
+- `primary_foreground`: `#fbfbfb` - `oklch(0.985 0 0)` - Primary text (Almost white)
+
+**Accent Colors:**
+- `accent`: `#f7f7f7` - `oklch(0.97 0 0)` - Accent background (Very light gray)
+- `accent_foreground`: `#343434` - `oklch(0.205 0 0)` - Accent text (Dark gray)
 
 **Component States:**
-- `bg_hover`: `#f1f5f9` - Hover state (Slate 100)
-- `bg_active`: `#e2e8f0` - Active/pressed state (Slate 200)
-- `bg_disabled`: `#f8fafc` - Disabled state (Slate 50)
-- `fg_disabled`: `#94a3b8` - Disabled text (Slate 400)
+- `bg_hover`: `#f7f7f7` - `oklch(0.97 0 0)` - Hover state (Very light gray)
+- `bg_active`: `#f7f7f7` - `oklch(0.97 0 0)` - Active/pressed state (Very light gray)
+- `bg_disabled`: `#f7f7f7` - `oklch(0.97 0 0)` - Disabled background (Very light gray)
+- `fg_disabled`: `#8e8e8e` - `oklch(0.556 0 0)` - Disabled text (Medium gray)
 
-**Semantic:**
-- `success`: `#22c55e` - Success/positive actions
-- `warning`: `#f59e0b` - Warning states
-- `error`: `#ef4444` - Error/destructive actions
-- `info`: `#3b82f6` - Informational
+**Semantic Colors:**
+- `success`: `#22c55e` - Success/positive actions (Green)
+- `warning`: `#f59e0b` - Warning states (Amber)
+- `error`: `#e11d48` - `oklch(0.577 0.245 27.325)` - Destructive actions (Red/Orange)
+- `info`: `#b5b5b5` - `oklch(0.708 0 0)` - Focus rings (Medium gray)
 
-**Primary Accent:**
-- `accent`: `#3b82f6` - Interactive elements
+### Dark Theme (`theme_shadecn_dark`)
+
+**Backgrounds:**
+- `bg_primary`: `#252525` - `oklch(0.145 0 0)` - Main background (Very dark gray)
+- `bg_secondary`: `#343434` - `oklch(0.205 0 0)` - Card background (Dark gray)
+- `bg_tertiary`: `#444444` - `oklch(0.269 0 0)` - Popover/Secondary background (Dark gray)
+
+**Foregrounds:**
+- `fg_primary`: `#fbfbfb` - `oklch(0.985 0 0)` - Main text (Almost white)
+- `fg_secondary`: `#fbfbfb` - `oklch(0.985 0 0)` - Card text (Almost white)
+- `fg_tertiary`: `#b5b5b5` - `oklch(0.708 0 0)` - Muted text (Medium gray)
+
+**Borders:**
+- `border_primary`: `#ffffff1a` - `oklch(1 0 0 / 10%)` - Main borders (White with 10% opacity)
+- `border_secondary`: `#ffffff1a` - `oklch(1 0 0 / 10%)` - Sidebar borders (White with 10% opacity)
+
+**Primary Colors:**
+- `primary`: `#ebebeb` - `oklch(0.922 0 0)` - Primary actions (Light gray)
+- `primary_foreground`: `#343434` - `oklch(0.205 0 0)` - Primary text (Dark gray)
+
+**Accent Colors:**
+- `accent`: `#5e5e5e` - `oklch(0.371 0 0)` - Accent background (Medium-dark gray)
+- `accent_foreground`: `#fbfbfb` - `oklch(0.985 0 0)` - Accent text (Almost white)
+
+**Component States:**
+- `bg_hover`: `#5e5e5e` - `oklch(0.371 0 0)` - Hover state (Medium-dark gray)
+- `bg_active`: `#444444` - `oklch(0.269 0 0)` - Active/pressed state (Dark gray)
+- `bg_disabled`: `#444444` - `oklch(0.269 0 0)` - Disabled background (Dark gray)
+- `fg_disabled`: `#b5b5b5` - `oklch(0.708 0 0)` - Disabled text (Medium gray)
+
+**Semantic Colors:**
+- `success`: `#22c55e` - Success/positive actions (Green)
+- `warning`: `#f59e0b` - Warning states (Amber)
+- `error`: `#dc2626` - `oklch(0.704 0.191 22.216)` - Destructive actions (Dark red)
+- `info`: `#8e8e8e` - `oklch(0.556 0 0)` - Focus rings (Medium gray)
 
 ## Spacing Scale
 
@@ -135,7 +147,7 @@ Caption: 10px, Normal (font_xs + weight 400)
 
 ## Border Radius
 
-Consistent border radius values for rounded corners:
+Consistent border radius values for rounded corners. Default shadecn radius is `0.625rem` (10px).
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -143,13 +155,14 @@ Consistent border radius values for rounded corners:
 | `radius_sm` | 2px | Small, refined corners |
 | `radius_md` | 4px | Standard corners |
 | `radius_lg` | 8px | Large, prominent corners |
-| `radius_xl` | 12px | Extra large corners |
+| `radius_xl` | 10px | Default shadecn radius (0.625rem) |
 | `radius_full` | 9999px | Fully rounded (pills) |
 
 ### Border Radius Guidelines
 
 - **Buttons, Inputs**: `radius_md` (4px)
 - **Cards, Containers**: `radius_lg` (8px)
+- **Default shadecn**: `radius_xl` (10px) - `--radius: 0.625rem`
 - **Pills, Badges**: `radius_full` (9999px)
 - **Slight refinement**: `radius_sm` (2px)
 
@@ -216,6 +229,31 @@ Padding: space_1 (4px) when selected
 - **Checked**: bg=accent (blue), border=accent
 - **Hover**: border slightly darker
 - **Disabled**: bg=slate-50, border=slate-200
+
+### Dropdown Menu
+
+```
+Padding: space_2 horizontal (8px), space_2 vertical (8px)
+Border Radius: radius_md (4px)
+Font Size: font_base (14px)
+Border: 1px solid border_primary
+Arrow Icon: Right-aligned, 28px from right edge
+```
+
+**States:**
+- **Default**: bg=bg_primary, border=border_primary, text=fg_primary
+- **Hover**: bg=bg_hover, border=border_hover
+- **Focus**: bg=bg_primary, border=primary (accent color)
+- **Disabled**: bg=bg_disabled, text=fg_disabled, border=border_disabled
+
+**Popup Menu:**
+- **Background**: bg_primary with border_primary border
+- **Border Radius**: radius_md (4px)
+- **Menu Item Padding**: space_3 horizontal (12px), space_2 vertical (8px)
+- **Menu Item States**:
+  - Default: bg=bg_primary, text=fg_primary
+  - Hover: bg=bg_hover, text=fg_primary
+  - Active: bg=bg_active, text=fg_primary
 
 ## Motion & Animation
 

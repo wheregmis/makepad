@@ -3,9 +3,10 @@ members = [
     "core",
     "components/button",
     "components/input",
-    "components/card",
-    "components/checkbox",
-    "components/toggle",
+    "components/label",
+    "components/radio-group",
+    "components/dropdown-menu",
+    "components/scroll-area",
     "examples/shadecn-demo",
 ]
 

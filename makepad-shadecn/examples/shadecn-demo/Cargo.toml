@@ -9,6 +9,8 @@ makepad-draw = { path = "../../../draw", version = "1.0.0" }
 makepad-shadecn-core = { path = "../../core", version = "0.1.0" }
 makepad-shadecn-button = { path = "../../components/button", version = "0.1.0" }
 makepad-shadecn-input = { path = "../../components/input", version = "0.1.0" }
-makepad-shadecn-card = { path = "../../components/card", version = "0.1.0" }
-makepad-shadecn-checkbox = { path = "../../components/checkbox", version = "0.1.0" }
-makepad-shadecn-toggle = { path = "../../components/toggle", version = "0.1.0" }
+makepad-shadecn-label = { path = "../../components/label", version = "0.1.0" }
+makepad-shadecn-radio-group = { path = "../../components/radio-group", version = "0.1.0" }
+makepad-shadecn-dropdown-menu = { path = "../../components/dropdown-menu", version = "0.1.0" }
+makepad-shadecn-scroll-area = { path = "../../components/scroll-area", version = "0.1.0" }
+makepad-code-editor = { path = "../../../code_editor", version = "1.0.0" }

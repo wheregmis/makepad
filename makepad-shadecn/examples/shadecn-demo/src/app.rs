@@ -1,329 +1,197 @@
-use makepad_widgets::*;
 use makepad_shadecn_core::*;
-use makepad_shadecn_button::*;
 use makepad_shadecn_input::*;
-use makepad_shadecn_card::*;
-use makepad_shadecn_checkbox::*;
-use makepad_shadecn_toggle::*;
+use makepad_widgets::*;
+
+use crate::layout;
 
 live_design! {
     use link::theme::*;
     use link::shaders::*;
     use link::widgets::*;
-
+    use crate::layout::*;
+    use crate::components::button::*;
+    use crate::components::input::*;
+    use crate::components::label::*;
+    use crate::components::radio_group::*;
+    use crate::components::dropdown_menu::*;
+    use crate::components::scroll_area::*;
+    use link::widgets::*;
 
     AppWindow = {{AppWindow}} {
         ui: <Root> {
             main_window = <Window> {
                 window: {
-                    inner_size: vec2(1100.0, 780.0),
-                    position: vec2(140.0, 120.0),
-                    title: "Shadecn UI Components"
+                    inner_size: vec2(1600.0, 1000.0),
+                    position: vec2(50.0, 50.0),
+                    title: "Shadecn UI Components - Documentation"
                 }
 
                 body = <View> {
                     width: Fill,
                     height: Fill,
-                    flow: Down,
                     show_bg: true,
                     draw_bg: {
                         fn pixel(self) -> vec4 {
-                            let gradient = mix(#f8fafc, #e2e8f0, self.pos.y);
-                            return gradient;
+                            return (COLOR_BG_PRIMARY);
                         }
                     }
 
-                    scroller = <View> {
-                        width: Fill,
-                        height: Fill,
-                        flow: Down,
-                        spacing: 32,
-                        padding: {left: 40, top: 36, right: 40, bottom: 48},
-                        scroll_bars: <ScrollBars> {
-                            show_scroll_x: false,
-                            show_scroll_y: true,
+                    layout = <AdaptiveView> {
+                        Desktop = {
+                            flow: Down,
+                            spacing: 0,
+
+                            header = <DocHeader> {}
+
+                            main_layout = <View> {
+                                width: Fill,
+                                height: Fill,
+                                flow: Right,
+                                spacing: 0,
+
+                                sidebar = <DocSidebar> {}
+
+                                content_area = <DocContent> {
+                                    content_scroll = {
+                                        DocContentInner = {
+                                            // Getting Started Page
+                                            getting_started_page = <View> {
+                                                width: Fill,
+                                                height: Fit,
+                                                flow: Down,
+                                                spacing: (SPACE_4),
+                                                margin: {bottom: (SPACE_4)},
+                                                visible: true,
+
+                                                title = <Label> {
+                                                    text: "Getting started",
+                                                    margin: {bottom: (SPACE_3)},
+                                                    draw_text: {
+                                                        text_style: {
+                                                            font_size: 36.0,
+                                                        }
+                                                        wrap: Word,
+                                                        color: (COLOR_FG_PRIMARY)
+                                                    }
+                                                }
+
+                                                subtitle = <Label> {
+                                                    text: "Welcome to Shadcn UI for Makepad. This is the official documentation for Shadcn UI for Makepad.",
+                                                    draw_text: {
+                                                        text_style: {
+                                                            font_size: (FONT_LG),
+                                                        }
+                                                        wrap: Word,
+                                                        color: (COLOR_FG_SECONDARY)
+                                                    }
+                                                }
+                                            }
+
+                                            // Button Component Page
+                                            button_page = <ButtonShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Input Component Page
+                                            input_page = <InputShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Label Component Page
+                                            label_page = <LabelShowcase> {
+                                                visible: false
+                                            }
+
+                                            // RadioGroup Component Page
+                                            radio_group_page = <RadioGroupShowcase> {
+                                                visible: false
+                                            }
+
+                                            // DropdownMenu Component Page
+                                            dropdown_menu_page = <DropdownMenuShowcase> {
+                                                visible: false
+                                            }
+
+                                            // ScrollArea Component Page
+                                            scroll_area_page = <ScrollAreaShowcase> {
+                                                visible: false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        content_view = <View> {
-                            width: Fill,
-                            height: Fit,
+                        Mobile = {
                             flow: Down,
-                            spacing: 32,
+                            spacing: 0,
 
-                            header_bar = <View> {
-                                width: Fill,
-                                height: Fit,
-                                flow: Right,
-                                spacing: 12,
-                                align: {x: 1.0, y: 0.0},
-                                margin: {left: 0, top: 0, right: 0, bottom: 16},
+                            header = <DocHeader> {}
 
-                                theme_label = <Label> {
-                                    text: "Dark mode",
-                                    draw_text: {
-                                        text_style: {
-                                            font_size: 14.0,
-                                        }
-                                        color: #475569
-                                    }
-                                }
-
-                                theme_toggle = <ShadecnToggle> {
-                                    width: Fit,
-                                    height: Fit,
-                                }
-                            }
-
-                            welcome = <View> {
-                                width: Fill,
-                                height: Fit,
-                                flow: Down,
-                                spacing: 8,
-
-                                title = <Label> {
-                                    text: "Shadecn Components",
-                                    draw_text: {
-                                        text_style: {
-                                            font_size: 30.0,
-                                        }
-                                        wrap: Word,
-                                        color: #0f172a
-                                    }
-                                }
-
-                                subtitle = <Label> {
-                                    text: "Composable UI primitives inspired by shadecn/ui, rebuilt with Makepad widgets and design tokens.",
-                                    draw_text: {
-                                        text_style: {
-                                            font_size: 15.0,
-                                        }
-                                        wrap: Word,
-                                        color: #475569
-                                    }
-                                }
-                            }
-
-                            action_row = <View> {
-                                width: Fill,
-                                height: Fit,
-                                flow: Right { wrap: true },
-                                spacing: 12,
-
-                                get_started = <ShadecnButton> {
-                                    text: "Get started"
-                                }
-
-                                docs_link = <ShadecnButtonGhost> {
-                                    text: "View documentation"
-                                }
-                            }
-
-                            component_stack = <View> {
-                                width: Fill,
-                                height: Fit,
-                                flow: Down,
-                                spacing: 24,
-
-                                button_section = <ShadecnCard> {
-                                    ShadecnCardHeader = <ShadecnCardHeader> {
-                                        ShadecnCardTitle = <ShadecnCardTitle> {
-                                            text: "Button Variants"
-                                        }
-                                        ShadecnCardDescription = <ShadecnCardDescription> {
-                                            text: "Primary actions, subtle options, and stateful buttons."
-                                        }
-                                    }
-
-                                    ShadecnCardContent = <ShadecnCardContent> {
-                                        width: Fill,
-                                        flow: Right { wrap: true },
-                                        spacing: 12,
-
-                                        <ShadecnButton> { text: "Primary" }
-                                        <ShadecnButtonSecondary> { text: "Secondary" }
-                                        <ShadecnButtonOutline> { text: "Outline" }
-                                        <ShadecnButtonDestructive> { text: "Destructive" }
-                                        <ShadecnButtonGhost> { text: "Ghost" }
-                                    }
-                                }
-
-                                form_section = <ShadecnCard> {
-                                    ShadecnCardHeader = <ShadecnCardHeader> {
-                                        ShadecnCardTitle = <ShadecnCardTitle> {
-                                            text: "Quick Form"
-                                        }
-                                        ShadecnCardDescription = <ShadecnCardDescription> {
-                                            text: "Inputs, validation, and agreement with shadecn styling."
-                                        }
-                                    }
-
-                                    ShadecnCardContent = <ShadecnCardContent> {
-                                        width: Fill,
-                                        flow: Down,
-                                        spacing: 18,
-
-                                        name_group = <View> {
+                            content_mobile = <DocContent> {
+                                content_scroll = {
+                                    DocContentInner = {
+                                        // Getting Started Page
+                                        getting_started_page_mobile = <View> {
                                             width: Fill,
+                                            height: Fit,
                                             flow: Down,
-                                            spacing: 6,
+                                            spacing: (SPACE_4),
+                                            margin: {bottom: (SPACE_4)},
+                                            visible: true,
 
-                                            label = <Label> {
-                                                text: "Full name",
+                                            title = <Label> {
+                                                text: "Getting started",
+                                                margin: {bottom: (SPACE_3)},
                                                 draw_text: {
                                                     text_style: {
-                                                        font_size: 14.0,
+                                                        font_size: 28.0,
                                                     }
-                                                    color: #0f172a
+                                                    wrap: Word,
+                                                    color: (COLOR_FG_PRIMARY)
                                                 }
                                             }
 
-                                            input = <ShadecnInput> {
-                                                empty_text: "Jane Appleseed"
-                                            }
-                                        }
-
-                                        email_group = <View> {
-                                            width: Fill,
-                                            flow: Down,
-                                            spacing: 6,
-
-                                            label = <Label> {
-                                                text: "Work email",
+                                            subtitle = <Label> {
+                                                text: "Welcome to Shadcn UI for Makepad. This is the official documentation for Shadcn UI for Makepad.",
                                                 draw_text: {
                                                     text_style: {
-                                                        font_size: 14.0,
+                                                        font_size: (FONT_BASE),
                                                     }
-                                                    color: #0f172a
+                                                    wrap: Word,
+                                                    color: (COLOR_FG_SECONDARY)
                                                 }
                                             }
-
-                                            email_input = <ShadecnInput> {
-                                                empty_text: "you@company.com"
-                                            }
                                         }
 
-                                        checkbox_group = <View> {
-                                            width: Fill,
-                                            flow: Down,
-                                            spacing: 10,
-
-                                            agree_checkbox = <ShadecnCheckbox> {
-                                                text: "I agree to the terms"
-                                                active: true
-                                            }
-
-                                            marketing_checkbox = <ShadecnCheckbox> {
-                                                text: "Receive occasional product updates"
-                                            }
-                                        }
-                                    }
-
-                                    ShadecnCardFooter = <ShadecnCardFooter> {
-                                        footer_hint = <Label> {
-                                            text: "We care about your privacy. Unsubscribe at any time."
-                                            draw_text: {
-                                                text_style: {
-                                                    font_size: 12.0,
-                                                }
-                                                wrap: Word,
-                                                color: #94a3b8
-                                            }
+                                        // Button Component Page
+                                        button_page_mobile = <ButtonShowcase> {
+                                            visible: false
                                         }
 
-                                        submit = <ShadecnButton> {
-                                            text: "Create account"
-                                        }
-                                    }
-                                }
-
-                                preferences_section = <ShadecnCard> {
-                                    ShadecnCardHeader = <ShadecnCardHeader> {
-                                        ShadecnCardTitle = <ShadecnCardTitle> {
-                                            text: "Preferences"
-                                        }
-                                        ShadecnCardDescription = <ShadecnCardDescription> {
-                                            text: "Toggle personalized experiences for your workspace."
-                                        }
-                                    }
-
-                                    ShadecnCardContent = <ShadecnCardContent> {
-                                        width: Fill,
-                                        flow: Down,
-                                        spacing: 14,
-
-                                        <ShadecnCheckbox> {
-                                            text: "Enable dark mode"
-                                            active: true
+                                        // Input Component Page
+                                        input_page_mobile = <InputShowcase> {
+                                            visible: false
                                         }
 
-                                        <ShadecnCheckbox> {
-                                            text: "Product research participation"
+                                        // Label Component Page
+                                        label_page_mobile = <LabelShowcase> {
+                                            visible: false
                                         }
 
-                                        <ShadecnCheckbox> {
-                                            text: "Weekly summary email"
+                                        // RadioGroup Component Page
+                                        radio_group_page_mobile = <RadioGroupShowcase> {
+                                            visible: false
                                         }
-                                    }
 
-                                    ShadecnCardFooter = <ShadecnCardFooter> {
-                                        <ShadecnButtonSecondary> {
-                                            text: "Save preferences"
+                                        // DropdownMenu Component Page
+                                        dropdown_menu_page_mobile = <DropdownMenuShowcase> {
+                                            visible: false
                                         }
-                                    }
-                                }
-                            }
 
-                            newsletter_section = <ShadecnCard> {
-                                ShadecnCardHeader = <ShadecnCardHeader> {
-                                    ShadecnCardTitle = <ShadecnCardTitle> {
-                                        text: "Editorial"
-                                    }
-                                    ShadecnCardDescription = <ShadecnCardDescription> {
-                                        text: "Highlight curated stories using cards and supporting text."
-                                    }
-                                }
-
-                                ShadecnCardContent = <ShadecnCardContent> {
-                                    width: Fill,
-                                    flow: Down,
-                                    spacing: 10,
-
-                                    intro = <Label> {
-                                        text: "Shadecn UI components bring a consistent visual language to Makepad. Every piece is powered by the same design tokens for typography, color, and spacing."
-                                        draw_text: {
-                                            text_style: {
-                                                font_size: 14.0,
-                                            }
-                                            wrap: Word,
-                                            color: #475569
-                                        }
-                                    }
-                                }
-                            }
-
-                            about_section = <ShadecnCard> {
-                                ShadecnCardHeader = <ShadecnCardHeader> {
-                                    ShadecnCardTitle = <ShadecnCardTitle> {
-                                        text: "About Shadecn Components"
-                                    }
-                                    ShadecnCardDescription = <ShadecnCardDescription> {
-                                        text: "Principles that guide composable, theme-aware UI."
-                                    }
-                                }
-
-                                ShadecnCardContent = <ShadecnCardContent> {
-                                    width: Fill,
-                                    flow: Down,
-                                    spacing: 10,
-
-                                    principle = <Label> {
-                                        text: "Each component is type-safe, themed with shared tokens, and intentionally minimal so you can build your own visual system on top. These demos pair buttons, inputs, and cards exactly the way the ui-zoo reference encourages—small polished primitives composed into real layouts."
-                                        draw_text: {
-                                            text_style: {
-                                                font_size: 14.0,
-                                            }
-                                            wrap: Word,
-                                            color: #334155
+                                        // ScrollArea Component Page
+                                        scroll_area_page_mobile = <ScrollAreaShowcase> {
+                                            visible: false
                                         }
                                     }
                                 }
@@ -343,7 +211,9 @@ pub struct AppWindow {
     #[live]
     ui: WidgetRef,
     #[rust]
-    is_dark_mode: bool,
+    search_query: String,
+    #[rust]
+    popup_item_clicked: bool,
 }
 
 impl LiveRegister for AppWindow {
@@ -352,39 +222,491 @@ impl LiveRegister for AppWindow {
         makepad_shadecn_core::live_design(cx);
         makepad_shadecn_button::live_design(cx);
         makepad_shadecn_input::live_design(cx);
-        makepad_shadecn_card::live_design(cx);
-        makepad_shadecn_checkbox::live_design(cx);
-        makepad_shadecn_toggle::live_design(cx);
-        
-        // Note: Keep default Makepad theme for widgets to work properly
-        // The shadecn themes are design tokens, not full theme replacements
-    }
-}
-
-impl LiveHook for AppWindow {
-    fn after_new_from_doc(&mut self, cx: &mut Cx) {
-        self.is_dark_mode = false;
-        // Set initial theme state to match toggle
-        self.ui.check_box(ids!(theme_toggle)).set_active(cx, false);
+        makepad_shadecn_label::live_design(cx);
+        makepad_shadecn_radio_group::live_design(cx);
+        makepad_shadecn_dropdown_menu::live_design(cx);
+        makepad_shadecn_scroll_area::live_design(cx);
+        makepad_code_editor::live_design(cx);
+        layout::live_design(cx);
+        crate::components::button::live_design(cx);
+        crate::components::input::live_design(cx);
+        crate::components::label::live_design(cx);
+        crate::components::radio_group::live_design(cx);
+        crate::components::dropdown_menu::live_design(cx);
+        crate::components::scroll_area::live_design(cx);
     }
 }
 
 impl MatchEvent for AppWindow {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
-        // Handle theme toggle
-        if let Some(is_active) = self.ui.check_box(ids!(theme_toggle)).changed(actions) {
-            if is_active != self.is_dark_mode {
-                self.is_dark_mode = is_active;
-                // Switch theme using standard Makepad themes
-                if self.is_dark_mode {
-                    cx.link(live_id!(theme), live_id!(theme_desktop_dark));
-                } else {
-                    cx.link(live_id!(theme), live_id!(theme_desktop_light));
+        // Handle navigation button clicks
+        let ui = self.ui.clone();
+
+        // Handle search input changes
+        if let Some(search_text) = ui.text_input(ids!(search_area)).changed(actions) {
+            self.search_query = search_text.clone();
+            self.update_search_filter(cx);
+        }
+
+        // Handle search result clicks
+        let ui2 = self.ui.clone();
+        self.popup_item_clicked = false;
+
+        if ui2.button(ids!(search_result_button)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "button");
+        }
+        if ui2.button(ids!(search_result_input)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "input");
+        }
+        if ui2.button(ids!(search_result_label)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "label");
+        }
+        if ui2.button(ids!(search_result_radio_group)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "radio_group");
+        }
+        if ui2
+            .button(ids!(search_result_dropdown_menu))
+            .clicked(actions)
+        {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "dropdown_menu");
+        }
+        if ui2.button(ids!(search_result_scroll_area)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "scroll_area");
+        }
+
+        // Handle radio button group selection (make them mutually exclusive)
+        ui.radio_button_set(ids_array!(
+            radio_group_page
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_1,
+            radio_group_page
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_2,
+            radio_group_page
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_3
+        ))
+        .selected(cx, actions);
+
+        // Also handle mobile version
+        ui.radio_button_set(ids_array!(
+            radio_group_page_mobile
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_1,
+            radio_group_page_mobile
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_2,
+            radio_group_page_mobile
+                .radio_subsection
+                .ComponentSubsectionDemo
+                .radio_demo
+                .radio_button_3
+        ))
+        .selected(cx, actions);
+
+        // Hide popup when clicking outside or losing focus (unless a popup item was clicked)
+        if !self.popup_item_clicked {
+            for action in actions.iter() {
+                if let Some(text_action) = action.as_widget_action() {
+                    if text_action.widget_uid == ui.text_input(ids!(search_area)).widget_uid() {
+                        if let Some(TextInputAction::KeyFocusLost) = text_action.cast() {
+                            ui.view(ids!(search_results_popup)).set_visible(cx, false);
+                        }
+                    }
                 }
-                cx.reload_ui_dsl();
-                cx.redraw_all();
             }
         }
+
+        // Navigation to Getting Started / Overview
+        if ui.button(ids!(nav_link_getting_started)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, true);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, true);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to Button component
+        if ui.button(ids!(component_link_button)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, true);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, true);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to Input component
+        if ui.button(ids!(component_link_input)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, true);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, true);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to Label component
+        if ui.button(ids!(component_link_label)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, true);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, true);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to RadioGroup component
+        if ui.button(ids!(component_link_radio_group)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, true);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile)).set_visible(cx, true);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to DropdownMenu component
+        if ui
+            .button(ids!(component_link_dropdown_menu))
+            .clicked(actions)
+        {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, true);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, true);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+        }
+
+        // Navigation to ScrollArea component
+        if ui.button(ids!(component_link_scroll_area)).clicked(actions) {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, true);
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile)).set_visible(cx, true);
+        }
+    }
+}
+
+impl AppWindow {
+    fn update_search_filter(&mut self, cx: &mut Cx) {
+        let ui = self.ui.clone();
+        let query = self.search_query.to_lowercase();
+
+        // Component search terms and their result buttons and navigation actions
+        let components = vec![
+            ("button", ids!(search_result_button), "button"),
+            ("input", ids!(search_result_input), "input"),
+            ("textinput", ids!(search_result_input), "input"),
+            ("label", ids!(search_result_label), "label"),
+            ("text", ids!(search_result_label), "label"),
+            ("radio", ids!(search_result_radio_group), "radio_group"),
+            ("radiogroup", ids!(search_result_radio_group), "radio_group"),
+            (
+                "radio button",
+                ids!(search_result_radio_group),
+                "radio_group",
+            ),
+            (
+                "dropdown",
+                ids!(search_result_dropdown_menu),
+                "dropdown_menu",
+            ),
+            ("menu", ids!(search_result_dropdown_menu), "dropdown_menu"),
+            (
+                "dropdown menu",
+                ids!(search_result_dropdown_menu),
+                "dropdown_menu",
+            ),
+            ("scroll", ids!(search_result_scroll_area), "scroll_area"),
+            ("area", ids!(search_result_scroll_area), "scroll_area"),
+            (
+                "scroll area",
+                ids!(search_result_scroll_area),
+                "scroll_area",
+            ),
+            ("scrollarea", ids!(search_result_scroll_area), "scroll_area"),
+        ];
+
+        // Get all result button IDs
+        let all_result_ids = vec![
+            ids!(search_result_button),
+            ids!(search_result_input),
+            ids!(search_result_label),
+            ids!(search_result_radio_group),
+            ids!(search_result_dropdown_menu),
+            ids!(search_result_scroll_area),
+        ];
+
+        if query.is_empty() {
+            // Hide popup when search is empty
+            ui.view(ids!(search_results_popup)).set_visible(cx, false);
+        } else {
+            // Show popup and filter results
+            ui.view(ids!(search_results_popup)).set_visible(cx, true);
+
+            // Hide all results first
+            for result_id in &all_result_ids {
+                ui.button(*result_id).set_visible(cx, false);
+            }
+
+            // Show matching results
+            let mut has_results = false;
+            for (name, result_id, _) in &components {
+                if name.contains(&query) {
+                    ui.button(*result_id).set_visible(cx, true);
+                    has_results = true;
+                }
+            }
+
+            // Hide popup if no results
+            if !has_results {
+                ui.view(ids!(search_results_popup)).set_visible(cx, false);
+            }
+        }
+    }
+
+    fn navigate_to_component(&mut self, cx: &mut Cx, component: &str) {
+        let ui = self.ui.clone();
+
+        // Hide popup
+        ui.view(ids!(search_results_popup)).set_visible(cx, false);
+
+        // Clear search
+        self.search_query = String::new();
+        ui.text_input(ids!(search_area)).set_text(cx, "");
+
+        // Navigate based on component name
+        match component {
+            "button" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, true);
+                ui.view(ids!(input_page)).set_visible(cx, false);
+                ui.view(ids!(label_page)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page)).set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, true);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(scroll_area_page_mobile))
+                    .set_visible(cx, false);
+            }
+            "input" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, false);
+                ui.view(ids!(input_page)).set_visible(cx, true);
+                ui.view(ids!(label_page)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page)).set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, true);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(scroll_area_page_mobile))
+                    .set_visible(cx, false);
+            }
+            "label" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, false);
+                ui.view(ids!(input_page)).set_visible(cx, false);
+                ui.view(ids!(label_page)).set_visible(cx, true);
+                ui.view(ids!(radio_group_page)).set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, true);
+                ui.view(ids!(radio_group_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(scroll_area_page_mobile))
+                    .set_visible(cx, false);
+            }
+            "radio_group" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, false);
+                ui.view(ids!(input_page)).set_visible(cx, false);
+                ui.view(ids!(label_page)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page)).set_visible(cx, true);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page_mobile)).set_visible(cx, true);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(scroll_area_page_mobile))
+                    .set_visible(cx, false);
+            }
+            "dropdown_menu" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, false);
+                ui.view(ids!(input_page)).set_visible(cx, false);
+                ui.view(ids!(label_page)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page)).set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, true);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, true);
+                ui.view(ids!(scroll_area_page_mobile))
+                    .set_visible(cx, false);
+            }
+            "scroll_area" => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, false);
+                ui.view(ids!(button_page)).set_visible(cx, false);
+                ui.view(ids!(input_page)).set_visible(cx, false);
+                ui.view(ids!(label_page)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page)).set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+                ui.view(ids!(scroll_area_page)).set_visible(cx, true);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+                ui.view(ids!(radio_group_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(dropdown_menu_page_mobile))
+                    .set_visible(cx, false);
+                ui.view(ids!(scroll_area_page_mobile)).set_visible(cx, true);
+            }
+            _ => {}
+        }
+    }
+}
+
+impl LiveHook for AppWindow {
+    fn after_new_from_doc(&mut self, _cx: &mut Cx) {
+        self.search_query = String::new();
+        self.popup_item_clicked = false;
     }
 }
 

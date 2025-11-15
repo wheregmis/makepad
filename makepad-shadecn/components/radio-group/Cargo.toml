@@ -1,11 +1,11 @@
 [package]
-name = "makepad-shadecn-card"
+name = "makepad-shadecn-radio-group"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Shadecn Card component for Makepad"
+description = "Shadecn RadioGroup component for Makepad"
 
 [dependencies]
 makepad-shadecn-core = { path = "../../core", version = "0.1.0" }

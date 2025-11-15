@@ -1,11 +1,11 @@
 [package]
-name = "makepad-shadecn-checkbox"
+name = "makepad-shadecn-dropdown-menu"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Shadecn Checkbox component for Makepad"
+description = "Shadecn DropdownMenu component for Makepad"
 
 [dependencies]
 makepad-shadecn-core = { path = "../../core", version = "0.1.0" }
