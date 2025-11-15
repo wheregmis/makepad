@@ -14,42 +14,42 @@ live_design! {
 
         label_walk: {
             width: Fit, height: Fit,
-            margin: {left: 12, top: 0, right: 0, bottom: 0},
+            margin: {left: (SPACE_3), top: 0, right: 0, bottom: 0},
         }
 
         draw_bg: {
-            size: 18.0,
-            border_radius: 4.0,
+            size: 16.0,
+            border_radius: (RADIUS_SM),
             border_size: 1.5,
 
-            color: #ffffff,
-            color_hover: #f8fafc,
-            color_down: #e2e8f0,
-            color_active: #3b82f6,
-            color_focus: vec4(0.145, 0.388, 0.922, 1.0),
-            color_disabled: #f1f5f9,
+            color: (COLOR_BG_PRIMARY),
+            color_hover: (COLOR_BG_HOVER),
+            color_down: (COLOR_BG_ACTIVE),
+            color_active: (COLOR_ACCENT),
+            color_focus: (COLOR_ACCENT_HOVER),
+            color_disabled: (COLOR_BG_DISABLED),
 
-            border_color: #e2e8f0,
-            border_color_hover: #cbd5e1,
-            border_color_down: #cbd5e1,
-            border_color_active: #1d4ed8,
-            border_color_focus: #93c5fd,
-            border_color_disabled: #e2e8f099,
+            border_color: (COLOR_BORDER_PRIMARY),
+            border_color_hover: (COLOR_BORDER_HOVER),
+            border_color_down: (COLOR_BORDER_SECONDARY),
+            border_color_active: (COLOR_ACCENT_DARK),
+            border_color_focus: (COLOR_ACCENT_FOCUS),
+            border_color_disabled: (COLOR_BORDER_DISABLED),
 
-            mark_color: #ffffff00,
-            mark_color_hover: #ffffff00,
-            mark_color_down: #ffffff00,
-            mark_color_active: #ffffff,
-            mark_color_active_hover: #ffffff,
-            mark_color_focus: #ffffff,
-            mark_color_disabled: #ffffff55,
+            mark_color: (COLOR_WHITE_TRANSPARENT_00),
+            mark_color_hover: (COLOR_WHITE_TRANSPARENT_00),
+            mark_color_down: (COLOR_WHITE_TRANSPARENT_00),
+            mark_color_active: (COLOR_WHITE),
+            mark_color_active_hover: (COLOR_WHITE),
+            mark_color_focus: (COLOR_WHITE),
+            mark_color_disabled: (COLOR_WHITE_TRANSPARENT_55),
         }
 
         draw_text: {
             text_style: {
-                font_size: 14.0,
+                font_size: (FONT_BASE),
             }
-            color: #0f172a
+            color: (COLOR_FG_PRIMARY)
         }
     }
 

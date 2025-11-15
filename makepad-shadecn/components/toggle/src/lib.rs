@@ -21,39 +21,39 @@ live_design! {
         draw_bg: {
             size: 44.0,
             check_type: Toggle,
-            border_radius: 22.0,
+            border_radius: (RADIUS_FULL),
             border_size: 0.0,
 
-            color: #e2e8f0,
-            color_hover: #cbd5e1,
-            color_down: #cbd5e1,
-            color_active: #3b82f6,
-            color_focus: #3b82f6,
-            color_disabled: #e2e8f0,
+            color: (COLOR_SLATE_200),
+            color_hover: (COLOR_BORDER_HOVER),
+            color_down: (COLOR_BORDER_SECONDARY),
+            color_active: (COLOR_ACCENT),
+            color_focus: (COLOR_ACCENT),
+            color_disabled: (COLOR_SLATE_200),
 
-            border_color: #e2e8f0,
-            border_color_hover: #cbd5e1,
-            border_color_down: #cbd5e1,
-            border_color_active: #1d4ed8,
-            border_color_focus: #93c5fd,
-            border_color_disabled: #e2e8f099,
+            border_color: (COLOR_SLATE_200),
+            border_color_hover: (COLOR_BORDER_HOVER),
+            border_color_down: (COLOR_BORDER_SECONDARY),
+            border_color_active: (COLOR_ACCENT_DARK),
+            border_color_focus: (COLOR_ACCENT_FOCUS),
+            border_color_disabled: (COLOR_BORDER_DISABLED),
 
             // Toggle thumb (the circle that moves)
             mark_size: 0.65,
-            mark_color: #ffffff,
-            mark_color_hover: #ffffff,
-            mark_color_down: #ffffff,
-            mark_color_active: #ffffff,
-            mark_color_active_hover: #ffffff,
-            mark_color_focus: #ffffff,
-            mark_color_disabled: #ffffffaa,
+            mark_color: (COLOR_WHITE),
+            mark_color_hover: (COLOR_WHITE),
+            mark_color_down: (COLOR_WHITE),
+            mark_color_active: (COLOR_WHITE),
+            mark_color_active_hover: (COLOR_WHITE),
+            mark_color_focus: (COLOR_WHITE),
+            mark_color_disabled: (COLOR_WHITE_TRANSPARENT_AA),
         }
 
         draw_text: {
             text_style: {
-                font_size: 14.0,
+                font_size: (FONT_BASE),
             }
-            color: #0f172a
+            color: (COLOR_FG_PRIMARY)
         }
     }
 

@@ -10,39 +10,39 @@ live_design! {
         width: Fill,
         height: Fit,
         margin: {left: 0, top: 0, right: 0, bottom: 0},
-        padding: {left: 12, top: 10, right: 12, bottom: 10},
+        padding: {left: (SPACE_3), top: 10, right: (SPACE_3), bottom: 10},
         empty_text: "",
         
         draw_bg: {
-            border_radius: 6.0,
+            border_radius: (RADIUS_MD),
             border_size: 1.0,
-            color: #ffffff,
-            color_hover: #f8fafc,
-            color_down: #f1f5f9,
-            color_focus: #ffffff,
-            color_empty: #f8fafc,
-            color_disabled: #f1f5f9,
-            border_color: #e2e8f0,
-            border_color_hover: #cbd5e1,
-            border_color_down: #cbd5e1,
-            border_color_focus: #93c5fd,
-            border_color_empty: #e2e8f0,
-            border_color_disabled: #e2e8f080,
+            color: (COLOR_BG_PRIMARY),
+            color_hover: (COLOR_BG_SECONDARY),
+            color_down: (COLOR_BG_HOVER),
+            color_focus: (COLOR_BG_PRIMARY),
+            color_empty: (COLOR_BG_SECONDARY),
+            color_disabled: (COLOR_BG_DISABLED),
+            border_color: (COLOR_BORDER_PRIMARY),
+            border_color_hover: (COLOR_BORDER_HOVER),
+            border_color_down: (COLOR_BORDER_SECONDARY),
+            border_color_focus: (COLOR_ACCENT_FOCUS),
+            border_color_empty: (COLOR_BORDER_PRIMARY),
+            border_color_disabled: (COLOR_BORDER_DISABLED),
         }
 
         draw_text: {
             text_style: {
-                font_size: 14.0,
+                font_size: (FONT_BASE),
             }
-            color: #0f172a
+            color: (COLOR_FG_PRIMARY)
         }
 
         draw_cursor: {
-            color: vec4(0.145, 0.388, 0.922, 1.0)
+            color: (COLOR_ACCENT_HOVER)
         }
 
         draw_selection: {
-            color: #bfdbfe
+            color: (COLOR_ACCENT_LIGHTER)
         }
     }
 
