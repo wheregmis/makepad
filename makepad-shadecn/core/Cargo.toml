@@ -1,0 +1,13 @@
+[package]
+name = "makepad-shadecn-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shadecn design system core for Makepad - themes, design tokens, and base utilities"
+build = "build.rs"
+
+[dependencies]
+makepad-draw = { path = "../../draw", version = "1.0.0" }
+makepad-derive-widget = { path = "../../widgets/derive_widget", version = "1.0.0" }

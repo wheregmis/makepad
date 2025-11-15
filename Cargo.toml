@@ -11,7 +11,6 @@ workspace.members = [
     "examples/news_feed",
     "examples/web_cam",
     "examples/text_flow",
-    "examples/teamtalk",
     "examples/websocket_image",
     "examples/snake",
     "examples/slides",
@@ -29,6 +28,7 @@ workspace.exclude = [
     "tools/web_server",
     "tools/file_router",
     "tools/wasm_strip",
+    "makepad-shadecn",
 ]
 
 workspace.resolver = "2"

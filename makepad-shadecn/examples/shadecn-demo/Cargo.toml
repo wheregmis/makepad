@@ -1,0 +1,14 @@
+[package]
+name = "shadecn-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+makepad-widgets = { path = "../../../widgets", version = "1.0.0" }
+makepad-draw = { path = "../../../draw", version = "1.0.0" }
+makepad-shadecn-core = { path = "../../core", version = "0.1.0" }
+makepad-shadecn-button = { path = "../../components/button", version = "0.1.0" }
+makepad-shadecn-input = { path = "../../components/input", version = "0.1.0" }
+makepad-shadecn-card = { path = "../../components/card", version = "0.1.0" }
+makepad-shadecn-checkbox = { path = "../../components/checkbox", version = "0.1.0" }
+makepad-shadecn-toggle = { path = "../../components/toggle", version = "0.1.0" }

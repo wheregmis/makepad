@@ -1,0 +1,22 @@
+[workspace]
+members = [
+    "core",
+    "components/button",
+    "components/input",
+    "components/card",
+    "components/checkbox",
+    "components/toggle",
+    "examples/shadecn-demo",
+]
+
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Makepad Shadecn Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/wheregmis/makepad"
+
+[profile.dev]
+opt-level = 1
