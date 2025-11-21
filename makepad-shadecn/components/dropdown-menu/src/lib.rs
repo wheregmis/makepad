@@ -8,7 +8,8 @@ live_design! {
 
     // Custom PopupMenuItem for Shadecn design system
     pub ShadecnPopupMenuItem = <PopupMenuItemBase> {
-        width: Fill,
+        // Fit to label size so the popup can size itself tightly
+        width: Fit,
         height: Fit,
         align: { y: 0.5 }
         padding: {left: (SPACE_3), top: (SPACE_2), right: (SPACE_3), bottom: (SPACE_2)},
@@ -100,7 +101,8 @@ live_design! {
 
     // Custom PopupMenuFlat for Shadecn design system
     pub ShadecnPopupMenuFlat = <PopupMenuBase> {
-        width: Fill,
+        // Let the menu size itself to its content instead of stretching full width
+        width: Fit,
         height: Fit,
         flow: Down,
         padding: {left: (SPACE_1), top: (SPACE_1), right: (SPACE_1), bottom: (SPACE_1)},

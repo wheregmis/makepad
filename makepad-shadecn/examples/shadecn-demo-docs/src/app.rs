@@ -1,5 +1,12 @@
+use makepad_shadecn_avatar::*;
+use makepad_shadecn_card::*;
+use makepad_shadecn_checkbox::*;
 use makepad_shadecn_core::*;
 use makepad_shadecn_input::*;
+use makepad_shadecn_progress::*;
+use makepad_shadecn_skeleton::*;
+use makepad_shadecn_slider::*;
+use makepad_shadecn_switch::*;
 use makepad_widgets::*;
 
 use crate::layout;
@@ -10,11 +17,20 @@ live_design! {
     use link::widgets::*;
     use crate::layout::*;
     use crate::components::button::*;
+    use crate::components::badge::*;
     use crate::components::input::*;
     use crate::components::label::*;
     use crate::components::radio_group::*;
     use crate::components::dropdown_menu::*;
     use crate::components::scroll_area::*;
+    use crate::components::separator::*;
+    use crate::components::card::*;
+    use crate::components::checkbox::*;
+    use crate::components::switch::*;
+    use crate::components::slider::*;
+    use crate::components::avatar::*;
+    use crate::components::skeleton::*;
+    use crate::components::progress::*;
     use link::widgets::*;
 
     AppWindow = {{AppWindow}} {
@@ -102,6 +118,16 @@ live_design! {
                                                 visible: false
                                             }
 
+                                            // Badge Component Page
+                                            badge_page = <BadgeShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Separator Component Page
+                                            separator_page = <SeparatorShowcase> {
+                                                visible: false
+                                            }
+
                                             // RadioGroup Component Page
                                             radio_group_page = <RadioGroupShowcase> {
                                                 visible: false
@@ -114,6 +140,41 @@ live_design! {
 
                                             // ScrollArea Component Page
                                             scroll_area_page = <ScrollAreaShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Card Component Page
+                                            card_page = <CardShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Checkbox Component Page
+                                            checkbox_page = <CheckboxShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Switch Component Page
+                                            switch_page = <SwitchShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Slider Component Page
+                                            slider_page = <SliderShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Avatar Component Page
+                                            avatar_page = <AvatarShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Skeleton Component Page
+                                            skeleton_page = <SkeletonShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Progress Component Page
+                                            progress_page = <ProgressShowcase> {
                                                 visible: false
                                             }
                                         }
@@ -179,6 +240,16 @@ live_design! {
                                             visible: false
                                         }
 
+                                        // Badge Component Page
+                                        badge_page_mobile = <BadgeShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Separator Component Page
+                                        separator_page_mobile = <SeparatorShowcase> {
+                                            visible: false
+                                        }
+
                                         // RadioGroup Component Page
                                         radio_group_page_mobile = <RadioGroupShowcase> {
                                             visible: false
@@ -191,6 +262,41 @@ live_design! {
 
                                         // ScrollArea Component Page
                                         scroll_area_page_mobile = <ScrollAreaShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Card Component Page
+                                        card_page_mobile = <CardShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Checkbox Component Page
+                                        checkbox_page_mobile = <CheckboxShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Switch Component Page
+                                        switch_page_mobile = <SwitchShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Slider Component Page
+                                        slider_page_mobile = <SliderShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Avatar Component Page
+                                        avatar_page_mobile = <AvatarShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Skeleton Component Page
+                                        skeleton_page_mobile = <SkeletonShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Progress Component Page
+                                        progress_page_mobile = <ProgressShowcase> {
                                             visible: false
                                         }
                                     }
@@ -221,19 +327,37 @@ impl LiveRegister for AppWindow {
         makepad_widgets::live_design(cx);
         makepad_shadecn_core::live_design(cx);
         makepad_shadecn_button::live_design(cx);
+        makepad_shadecn_badge::live_design(cx);
         makepad_shadecn_input::live_design(cx);
         makepad_shadecn_label::live_design(cx);
         makepad_shadecn_radio_group::live_design(cx);
         makepad_shadecn_dropdown_menu::live_design(cx);
+        makepad_shadecn_separator::live_design(cx);
         makepad_shadecn_scroll_area::live_design(cx);
+        makepad_shadecn_card::live_design(cx);
+        makepad_shadecn_checkbox::live_design(cx);
+        makepad_shadecn_switch::live_design(cx);
+        makepad_shadecn_slider::live_design(cx);
+        makepad_shadecn_avatar::live_design(cx);
+        makepad_shadecn_skeleton::live_design(cx);
+        makepad_shadecn_progress::live_design(cx);
         makepad_code_editor::live_design(cx);
         layout::live_design(cx);
         crate::components::button::live_design(cx);
+        crate::components::badge::live_design(cx);
         crate::components::input::live_design(cx);
         crate::components::label::live_design(cx);
+        crate::components::separator::live_design(cx);
         crate::components::radio_group::live_design(cx);
         crate::components::dropdown_menu::live_design(cx);
         crate::components::scroll_area::live_design(cx);
+        crate::components::card::live_design(cx);
+        crate::components::checkbox::live_design(cx);
+        crate::components::switch::live_design(cx);
+        crate::components::slider::live_design(cx);
+        crate::components::avatar::live_design(cx);
+        crate::components::skeleton::live_design(cx);
+        crate::components::progress::live_design(cx);
     }
 }
 
@@ -264,6 +388,14 @@ impl MatchEvent for AppWindow {
             self.popup_item_clicked = true;
             self.navigate_to_component(cx, "label");
         }
+        if ui2.button(ids!(search_result_badge)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "badge");
+        }
+        if ui2.button(ids!(search_result_separator)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "separator");
+        }
         if ui2.button(ids!(search_result_radio_group)).clicked(actions) {
             self.popup_item_clicked = true;
             self.navigate_to_component(cx, "radio_group");
@@ -278,6 +410,18 @@ impl MatchEvent for AppWindow {
         if ui2.button(ids!(search_result_scroll_area)).clicked(actions) {
             self.popup_item_clicked = true;
             self.navigate_to_component(cx, "scroll_area");
+        }
+        if ui2.button(ids!(search_result_avatar)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "avatar");
+        }
+        if ui2.button(ids!(search_result_skeleton)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "skeleton");
+        }
+        if ui2.button(ids!(search_result_progress)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "progress");
         }
 
         // Handle radio button group selection (make them mutually exclusive)
@@ -335,111 +479,37 @@ impl MatchEvent for AppWindow {
 
         // Navigation to Getting Started / Overview
         if ui.button(ids!(nav_link_getting_started)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, true);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, true);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "getting_started");
         }
 
         // Navigation to Button component
         if ui.button(ids!(component_link_button)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, true);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, true);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "button");
         }
 
         // Navigation to Input component
         if ui.button(ids!(component_link_input)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, true);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, true);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "input");
         }
 
         // Navigation to Label component
         if ui.button(ids!(component_link_label)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, true);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, true);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "label");
+        }
+
+        // Navigation to Badge component
+        if ui.button(ids!(component_link_badge)).clicked(actions) {
+            self.navigate_to_component(cx, "badge");
+        }
+
+        // Navigation to Separator component
+        if ui.button(ids!(component_link_separator)).clicked(actions) {
+            self.navigate_to_component(cx, "separator");
         }
 
         // Navigation to RadioGroup component
         if ui.button(ids!(component_link_radio_group)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, true);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile)).set_visible(cx, true);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "radio_group");
         }
 
         // Navigation to DropdownMenu component
@@ -447,45 +517,47 @@ impl MatchEvent for AppWindow {
             .button(ids!(component_link_dropdown_menu))
             .clicked(actions)
         {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, true);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, true);
-            ui.view(ids!(scroll_area_page_mobile))
-                .set_visible(cx, false);
+            self.navigate_to_component(cx, "dropdown_menu");
         }
 
         // Navigation to ScrollArea component
         if ui.button(ids!(component_link_scroll_area)).clicked(actions) {
-            ui.view(ids!(getting_started_page)).set_visible(cx, false);
-            ui.view(ids!(button_page)).set_visible(cx, false);
-            ui.view(ids!(input_page)).set_visible(cx, false);
-            ui.view(ids!(label_page)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page)).set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-            ui.view(ids!(scroll_area_page)).set_visible(cx, true);
-            ui.view(ids!(getting_started_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-            ui.view(ids!(radio_group_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(dropdown_menu_page_mobile))
-                .set_visible(cx, false);
-            ui.view(ids!(scroll_area_page_mobile)).set_visible(cx, true);
+            self.navigate_to_component(cx, "scroll_area");
+        }
+
+        // Navigation to Card component
+        if ui.button(ids!(component_link_card)).clicked(actions) {
+            self.navigate_to_component(cx, "card");
+        }
+
+        // Navigation to Checkbox component
+        if ui.button(ids!(component_link_checkbox)).clicked(actions) {
+            self.navigate_to_component(cx, "checkbox");
+        }
+
+        // Navigation to Switch component
+        if ui.button(ids!(component_link_switch)).clicked(actions) {
+            self.navigate_to_component(cx, "switch");
+        }
+
+        // Navigation to Slider component
+        if ui.button(ids!(component_link_slider)).clicked(actions) {
+            self.navigate_to_component(cx, "slider");
+        }
+
+        // Navigation to Avatar component
+        if ui.button(ids!(component_link_avatar)).clicked(actions) {
+            self.navigate_to_component(cx, "avatar");
+        }
+
+        // Navigation to Skeleton component
+        if ui.button(ids!(component_link_skeleton)).clicked(actions) {
+            self.navigate_to_component(cx, "skeleton");
+        }
+
+        // Navigation to Progress component
+        if ui.button(ids!(component_link_progress)).clicked(actions) {
+            self.navigate_to_component(cx, "progress");
         }
     }
 }
@@ -502,6 +574,10 @@ impl AppWindow {
             ("textinput", ids!(search_result_input), "input"),
             ("label", ids!(search_result_label), "label"),
             ("text", ids!(search_result_label), "label"),
+            ("badge", ids!(search_result_badge), "badge"),
+            ("pill", ids!(search_result_badge), "badge"),
+            ("separator", ids!(search_result_separator), "separator"),
+            ("divider", ids!(search_result_separator), "separator"),
             ("radio", ids!(search_result_radio_group), "radio_group"),
             ("radiogroup", ids!(search_result_radio_group), "radio_group"),
             (
@@ -528,6 +604,22 @@ impl AppWindow {
                 "scroll_area",
             ),
             ("scrollarea", ids!(search_result_scroll_area), "scroll_area"),
+            ("card", ids!(search_result_card), "card"),
+            ("checkbox", ids!(search_result_checkbox), "checkbox"),
+            ("check", ids!(search_result_checkbox), "checkbox"),
+            ("switch", ids!(search_result_switch), "switch"),
+            ("toggle", ids!(search_result_switch), "switch"),
+            ("slider", ids!(search_result_slider), "slider"),
+            ("range", ids!(search_result_slider), "slider"),
+            ("avatar", ids!(search_result_avatar), "avatar"),
+            ("image", ids!(search_result_avatar), "avatar"),
+            ("profile", ids!(search_result_avatar), "avatar"),
+            ("skeleton", ids!(search_result_skeleton), "skeleton"),
+            ("loading", ids!(search_result_skeleton), "skeleton"),
+            ("placeholder", ids!(search_result_skeleton), "skeleton"),
+            ("progress", ids!(search_result_progress), "progress"),
+            ("bar", ids!(search_result_progress), "progress"),
+            ("loading bar", ids!(search_result_progress), "progress"),
         ];
 
         // Get all result button IDs
@@ -535,9 +627,18 @@ impl AppWindow {
             ids!(search_result_button),
             ids!(search_result_input),
             ids!(search_result_label),
+            ids!(search_result_badge),
+            ids!(search_result_separator),
             ids!(search_result_radio_group),
             ids!(search_result_dropdown_menu),
             ids!(search_result_scroll_area),
+            ids!(search_result_card),
+            ids!(search_result_checkbox),
+            ids!(search_result_switch),
+            ids!(search_result_slider),
+            ids!(search_result_avatar),
+            ids!(search_result_skeleton),
+            ids!(search_result_progress),
         ];
 
         if query.is_empty() {
@@ -578,127 +679,146 @@ impl AppWindow {
         self.search_query = String::new();
         ui.text_input(ids!(search_area)).set_text(cx, "");
 
+        // Helper to hide all pages
+        let hide_all = |cx: &mut Cx, ui: &WidgetRef| {
+            ui.view(ids!(getting_started_page)).set_visible(cx, false);
+            ui.view(ids!(button_page)).set_visible(cx, false);
+            ui.view(ids!(input_page)).set_visible(cx, false);
+            ui.view(ids!(label_page)).set_visible(cx, false);
+            ui.view(ids!(badge_page)).set_visible(cx, false);
+            ui.view(ids!(separator_page)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page)).set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
+            ui.view(ids!(scroll_area_page)).set_visible(cx, false);
+            ui.view(ids!(card_page)).set_visible(cx, false);
+            ui.view(ids!(checkbox_page)).set_visible(cx, false);
+            ui.view(ids!(switch_page)).set_visible(cx, false);
+            ui.view(ids!(slider_page)).set_visible(cx, false);
+            ui.view(ids!(avatar_page)).set_visible(cx, false);
+            ui.view(ids!(skeleton_page)).set_visible(cx, false);
+            ui.view(ids!(progress_page)).set_visible(cx, false);
+
+            ui.view(ids!(getting_started_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(button_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(input_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(label_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(badge_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(separator_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(radio_group_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(dropdown_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(scroll_area_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(card_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(checkbox_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(switch_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(slider_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(avatar_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(skeleton_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(progress_page_mobile)).set_visible(cx, false);
+        };
+
+        hide_all(cx, &ui);
+
         // Navigate based on component name
         match component {
             "button" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
                 ui.view(ids!(button_page)).set_visible(cx, true);
-                ui.view(ids!(input_page)).set_visible(cx, false);
-                ui.view(ids!(label_page)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page)).set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
                 ui.view(ids!(button_page_mobile)).set_visible(cx, true);
-                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(scroll_area_page_mobile))
-                    .set_visible(cx, false);
             }
             "input" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
-                ui.view(ids!(button_page)).set_visible(cx, false);
                 ui.view(ids!(input_page)).set_visible(cx, true);
-                ui.view(ids!(label_page)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page)).set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
                 ui.view(ids!(input_page_mobile)).set_visible(cx, true);
-                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(scroll_area_page_mobile))
-                    .set_visible(cx, false);
             }
             "label" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
-                ui.view(ids!(button_page)).set_visible(cx, false);
-                ui.view(ids!(input_page)).set_visible(cx, false);
                 ui.view(ids!(label_page)).set_visible(cx, true);
-                ui.view(ids!(radio_group_page)).set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
                 ui.view(ids!(label_page_mobile)).set_visible(cx, true);
-                ui.view(ids!(radio_group_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(scroll_area_page_mobile))
-                    .set_visible(cx, false);
+            }
+            "badge" => {
+                ui.view(ids!(badge_page)).set_visible(cx, true);
+                ui.view(ids!(badge_page_mobile)).set_visible(cx, true);
+            }
+            "separator" => {
+                ui.view(ids!(separator_page)).set_visible(cx, true);
+                ui.view(ids!(separator_page_mobile)).set_visible(cx, true);
             }
             "radio_group" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
-                ui.view(ids!(button_page)).set_visible(cx, false);
-                ui.view(ids!(input_page)).set_visible(cx, false);
-                ui.view(ids!(label_page)).set_visible(cx, false);
                 ui.view(ids!(radio_group_page)).set_visible(cx, true);
-                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
-                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
                 ui.view(ids!(radio_group_page_mobile)).set_visible(cx, true);
-                ui.view(ids!(dropdown_menu_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(scroll_area_page_mobile))
-                    .set_visible(cx, false);
             }
             "dropdown_menu" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
-                ui.view(ids!(button_page)).set_visible(cx, false);
-                ui.view(ids!(input_page)).set_visible(cx, false);
-                ui.view(ids!(label_page)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page)).set_visible(cx, false);
                 ui.view(ids!(dropdown_menu_page)).set_visible(cx, true);
-                ui.view(ids!(scroll_area_page)).set_visible(cx, false);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page_mobile))
-                    .set_visible(cx, false);
                 ui.view(ids!(dropdown_menu_page_mobile))
                     .set_visible(cx, true);
-                ui.view(ids!(scroll_area_page_mobile))
-                    .set_visible(cx, false);
             }
             "scroll_area" => {
-                ui.view(ids!(getting_started_page)).set_visible(cx, false);
-                ui.view(ids!(button_page)).set_visible(cx, false);
-                ui.view(ids!(input_page)).set_visible(cx, false);
-                ui.view(ids!(label_page)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page)).set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page)).set_visible(cx, false);
                 ui.view(ids!(scroll_area_page)).set_visible(cx, true);
-                ui.view(ids!(getting_started_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(button_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(input_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(label_page_mobile)).set_visible(cx, false);
-                ui.view(ids!(radio_group_page_mobile))
-                    .set_visible(cx, false);
-                ui.view(ids!(dropdown_menu_page_mobile))
-                    .set_visible(cx, false);
                 ui.view(ids!(scroll_area_page_mobile)).set_visible(cx, true);
             }
-            _ => {}
+            "card" => {
+                ui.view(ids!(card_page)).set_visible(cx, true);
+                ui.view(ids!(card_page_mobile)).set_visible(cx, true);
+            }
+            "checkbox" => {
+                ui.view(ids!(checkbox_page)).set_visible(cx, true);
+                ui.view(ids!(checkbox_page_mobile)).set_visible(cx, true);
+            }
+            "switch" => {
+                ui.view(ids!(switch_page)).set_visible(cx, true);
+                ui.view(ids!(switch_page_mobile)).set_visible(cx, true);
+            }
+            "slider" => {
+                ui.view(ids!(slider_page)).set_visible(cx, true);
+                ui.view(ids!(slider_page_mobile)).set_visible(cx, true);
+            }
+            "avatar" => {
+                ui.view(ids!(avatar_page)).set_visible(cx, true);
+                ui.view(ids!(avatar_page_mobile)).set_visible(cx, true);
+            }
+            "skeleton" => {
+                ui.view(ids!(skeleton_page)).set_visible(cx, true);
+                ui.view(ids!(skeleton_page_mobile)).set_visible(cx, true);
+            }
+            "progress" => {
+                ui.view(ids!(progress_page)).set_visible(cx, true);
+                ui.view(ids!(progress_page_mobile)).set_visible(cx, true);
+            }
+            _ => {
+                ui.view(ids!(getting_started_page)).set_visible(cx, true);
+                ui.view(ids!(getting_started_page_mobile))
+                    .set_visible(cx, true);
+            }
+        }
+
+        // Update sidebar active states
+        let sidebar_items = [
+            ("button", ids!(component_link_button)),
+            ("input", ids!(component_link_input)),
+            ("label", ids!(component_link_label)),
+            ("badge", ids!(component_link_badge)),
+            ("separator", ids!(component_link_separator)),
+            ("radio_group", ids!(component_link_radio_group)),
+            ("dropdown_menu", ids!(component_link_dropdown_menu)),
+            ("scroll_area", ids!(component_link_scroll_area)),
+            ("card", ids!(component_link_card)),
+            ("checkbox", ids!(component_link_checkbox)),
+            ("switch", ids!(component_link_switch)),
+            ("slider", ids!(component_link_slider)),
+            ("avatar", ids!(component_link_avatar)),
+            ("skeleton", ids!(component_link_skeleton)),
+            ("progress", ids!(component_link_progress)),
+        ];
+
+        for (name, id) in sidebar_items.iter() {
+            if *name == component {
+                // In a real implementation we might want to set a "selected" state on the button
+                // But for now we just ensure the button is visible (it always is)
+                // ui.button(*id).set_selected(cx, true);
+            } else {
+                // ui.button(*id).set_selected(cx, false);
+            }
         }
     }
 }

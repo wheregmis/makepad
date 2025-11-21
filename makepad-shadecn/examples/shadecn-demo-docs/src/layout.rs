@@ -126,6 +126,18 @@ live_design! {
                     align: {x: 0.0, y: 0.5},
                 }
 
+                component_link_badge = <ShadecnButtonGhost> {
+                    text: "Badge",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_separator = <ShadecnButtonGhost> {
+                    text: "Separator",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
                 component_link_radio_group = <ShadecnButtonGhost> {
                     text: "RadioGroup",
                     width: Fill,
@@ -140,6 +152,48 @@ live_design! {
 
                 component_link_scroll_area = <ShadecnButtonGhost> {
                     text: "Scroll Area",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_card = <ShadecnButtonGhost> {
+                    text: "Card",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_checkbox = <ShadecnButtonGhost> {
+                    text: "Checkbox",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_switch = <ShadecnButtonGhost> {
+                    text: "Switch",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_slider = <ShadecnButtonGhost> {
+                    text: "Slider",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_avatar = <ShadecnButtonGhost> {
+                    text: "Avatar",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_skeleton = <ShadecnButtonGhost> {
+                    text: "Skeleton",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_progress = <ShadecnButtonGhost> {
+                    text: "Progress",
                     width: Fill,
                     align: {x: 0.0, y: 0.5},
                 }
@@ -234,6 +288,18 @@ live_design! {
                             align: {x: 0.0, y: 0.5},
                         }
 
+                        search_result_badge = <ShadecnButtonGhost> {
+                            text: "Badge",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_separator = <ShadecnButtonGhost> {
+                            text: "Separator",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
                         search_result_radio_group = <ShadecnButtonGhost> {
                             text: "RadioGroup",
                             width: Fill,
@@ -248,6 +314,48 @@ live_design! {
 
                         search_result_scroll_area = <ShadecnButtonGhost> {
                             text: "Scroll Area",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_card = <ShadecnButtonGhost> {
+                            text: "Card",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_checkbox = <ShadecnButtonGhost> {
+                            text: "Checkbox",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_switch = <ShadecnButtonGhost> {
+                            text: "Switch",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_slider = <ShadecnButtonGhost> {
+                            text: "Slider",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_avatar = <ShadecnButtonGhost> {
+                            text: "Avatar",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_skeleton = <ShadecnButtonGhost> {
+                            text: "Skeleton",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_progress = <ShadecnButtonGhost> {
+                            text: "Progress",
                             width: Fill,
                             align: {x: 0.0, y: 0.5},
                         }

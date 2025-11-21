@@ -1,5 +1,5 @@
 [package]
-name = "shadecn-demo"
+name = "shadecn-demo-docs"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,9 +8,18 @@ makepad-widgets = { path = "../../../widgets", version = "1.0.0" }
 makepad-draw = { path = "../../../draw", version = "1.0.0" }
 makepad-shadecn-core = { path = "../../core", version = "0.1.0" }
 makepad-shadecn-button = { path = "../../components/button", version = "0.1.0" }
+makepad-shadecn-badge = { path = "../../components/badge", version = "0.1.0" }
 makepad-shadecn-input = { path = "../../components/input", version = "0.1.0" }
 makepad-shadecn-label = { path = "../../components/label", version = "0.1.0" }
 makepad-shadecn-radio-group = { path = "../../components/radio-group", version = "0.1.0" }
 makepad-shadecn-dropdown-menu = { path = "../../components/dropdown-menu", version = "0.1.0" }
+makepad-shadecn-separator = { path = "../../components/separator", version = "0.1.0" }
 makepad-shadecn-scroll-area = { path = "../../components/scroll-area", version = "0.1.0" }
+makepad-shadecn-card = { path = "../../components/card", version = "0.1.0" }
+makepad-shadecn-checkbox = { path = "../../components/checkbox", version = "0.1.0" }
+makepad-shadecn-switch = { path = "../../components/switch", version = "0.1.0" }
+makepad-shadecn-slider = { path = "../../components/slider", version = "0.1.0" }
+makepad-shadecn-avatar = { path = "../../components/avatar", version = "0.1.0" }
+makepad-shadecn-skeleton = { path = "../../components/skeleton", version = "0.1.0" }
+makepad-shadecn-progress = { path = "../../components/progress", version = "0.1.0" }
 makepad-code-editor = { path = "../../../code_editor", version = "1.0.0" }
