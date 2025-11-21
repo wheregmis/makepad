@@ -175,9 +175,8 @@ impl Widget for ShadecnToggle {
 
     fn draw_walk(&mut self, cx: &mut Cx2d, _scope: &mut Scope, walk: Walk) -> DrawStep {
         self.draw_bg.begin(cx, walk, self.layout);
-        if self.draw_icon.icon_id != 0 {
-             self.draw_icon.draw_walk(cx, self.icon_walk);
-        }
+        // Draw icon if present (simplified check - always attempt to draw)
+        self.draw_icon.draw_walk(cx, self.icon_walk);
         if !self.text.is_empty() {
             self.draw_text.draw_walk(cx, Walk::fit(), Align::default(), &self.text);
         }

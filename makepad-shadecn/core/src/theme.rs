@@ -47,6 +47,9 @@ live_design! {
     // --muted: oklch(0.97 0 0) = very light gray
     pub COLOR_BG_DISABLED = #f7f7f7
 
+    // --popover: white
+    pub COLOR_BG_POPOVER = #ffffff
+    
     // --foreground: oklch(0.145 0 0) = very dark gray
     pub COLOR_FG_PRIMARY = #252525
     // --secondary-foreground: oklch(0.205 0 0) = dark gray

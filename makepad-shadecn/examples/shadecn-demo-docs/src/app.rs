@@ -1,12 +1,29 @@
+use makepad_shadecn_accordion::*;
+use makepad_shadecn_alert::*;
+use makepad_shadecn_alert_dialog::*;
 use makepad_shadecn_avatar::*;
+use makepad_shadecn_calendar::*;
 use makepad_shadecn_card::*;
+use makepad_shadecn_carousel::*;
 use makepad_shadecn_checkbox::*;
+use makepad_shadecn_collapsible::*;
+use makepad_shadecn_command::*;
+use makepad_shadecn_context_menu::*;
 use makepad_shadecn_core::*;
+use makepad_shadecn_dialog::*;
+use makepad_shadecn_drawer::*;
+use makepad_shadecn_hover_card::*;
 use makepad_shadecn_input::*;
+use makepad_shadecn_popover::*;
 use makepad_shadecn_progress::*;
+use makepad_shadecn_sheet::*;
 use makepad_shadecn_skeleton::*;
 use makepad_shadecn_slider::*;
 use makepad_shadecn_switch::*;
+use makepad_shadecn_table::*;
+use makepad_shadecn_tabs::*;
+use makepad_shadecn_toast::*;
+use makepad_shadecn_tooltip::*;
 use makepad_widgets::*;
 
 use crate::layout;
@@ -31,6 +48,23 @@ live_design! {
     use crate::components::avatar::*;
     use crate::components::skeleton::*;
     use crate::components::progress::*;
+    use crate::components::dialog::*;
+    use crate::components::sheet::*;
+    use crate::components::drawer::*;
+    use crate::components::popover::*;
+    use crate::components::hover_card::*;
+    use crate::components::alert_dialog::*;
+    use crate::components::tooltip::*;
+    use crate::components::toast::*;
+    use crate::components::tabs::*;
+    use crate::components::table::*;
+    use crate::components::calendar::*;
+    use crate::components::accordion::*;
+    use crate::components::alert::*;
+    use crate::components::carousel::*;
+    use crate::components::collapsible::*;
+    use crate::components::context_menu::*;
+    use crate::components::command::*;
     use link::widgets::*;
 
     AppWindow = {{AppWindow}} {
@@ -175,6 +209,91 @@ live_design! {
 
                                             // Progress Component Page
                                             progress_page = <ProgressShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Dialog Component Page
+                                            dialog_page = <DialogShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Sheet Component Page
+                                            sheet_page = <SheetShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Drawer Component Page
+                                            drawer_page = <DrawerShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Popover Component Page
+                                            popover_page = <PopoverShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Hover Card Component Page
+                                            hover_card_page = <HoverCardShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Alert Dialog Component Page
+                                            alert_dialog_page = <AlertDialogShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Tooltip Component Page
+                                            tooltip_page = <TooltipShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Toast Component Page
+                                            toast_page = <ToastShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Tabs Component Page
+                                            tabs_page = <TabsShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Table Component Page
+                                            table_page = <TableShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Calendar Component Page
+                                            calendar_page = <CalendarShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Accordion Component Page
+                                            accordion_page = <AccordionShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Alert Component Page
+                                            alert_page = <AlertShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Carousel Component Page
+                                            carousel_page = <CarouselShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Collapsible Component Page
+                                            collapsible_page = <CollapsibleShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Context Menu Component Page
+                                            context_menu_page = <ContextMenuShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Command Component Page
+                                            command_page = <CommandShowcase> {
                                                 visible: false
                                             }
                                         }
@@ -341,6 +460,23 @@ impl LiveRegister for AppWindow {
         makepad_shadecn_avatar::live_design(cx);
         makepad_shadecn_skeleton::live_design(cx);
         makepad_shadecn_progress::live_design(cx);
+        makepad_shadecn_dialog::live_design(cx);
+        makepad_shadecn_sheet::live_design(cx);
+        makepad_shadecn_hover_card::live_design(cx);
+        makepad_shadecn_alert_dialog::live_design(cx);
+        makepad_shadecn_toast::live_design(cx);
+        makepad_shadecn_tooltip::live_design(cx);
+        makepad_shadecn_command::live_design(cx);
+        makepad_shadecn_context_menu::live_design(cx);
+        makepad_shadecn_popover::live_design(cx);
+        makepad_shadecn_drawer::live_design(cx);
+        makepad_shadecn_tabs::live_design(cx);
+        makepad_shadecn_table::live_design(cx);
+        makepad_shadecn_calendar::live_design(cx);
+        makepad_shadecn_accordion::live_design(cx);
+        makepad_shadecn_alert::live_design(cx);
+        makepad_shadecn_carousel::live_design(cx);
+        makepad_shadecn_collapsible::live_design(cx);
         makepad_code_editor::live_design(cx);
         layout::live_design(cx);
         crate::components::button::live_design(cx);
@@ -358,6 +494,23 @@ impl LiveRegister for AppWindow {
         crate::components::avatar::live_design(cx);
         crate::components::skeleton::live_design(cx);
         crate::components::progress::live_design(cx);
+        crate::components::dialog::live_design(cx);
+        crate::components::sheet::live_design(cx);
+        crate::components::drawer::live_design(cx);
+        crate::components::popover::live_design(cx);
+        crate::components::hover_card::live_design(cx);
+        crate::components::alert_dialog::live_design(cx);
+        crate::components::tooltip::live_design(cx);
+        crate::components::toast::live_design(cx);
+        crate::components::tabs::live_design(cx);
+        crate::components::table::live_design(cx);
+        crate::components::calendar::live_design(cx);
+        crate::components::accordion::live_design(cx);
+        crate::components::alert::live_design(cx);
+        crate::components::carousel::live_design(cx);
+        crate::components::collapsible::live_design(cx);
+        crate::components::context_menu::live_design(cx);
+        crate::components::command::live_design(cx);
     }
 }
 
@@ -559,6 +712,97 @@ impl MatchEvent for AppWindow {
         if ui.button(ids!(component_link_progress)).clicked(actions) {
             self.navigate_to_component(cx, "progress");
         }
+
+        // Navigation to Dialog component
+        if ui.button(ids!(component_link_dialog)).clicked(actions) {
+            self.navigate_to_component(cx, "dialog");
+        }
+
+        // Navigation to Sheet component
+        if ui.button(ids!(component_link_sheet)).clicked(actions) {
+            self.navigate_to_component(cx, "sheet");
+        }
+
+        // Navigation to Drawer component
+        if ui.button(ids!(component_link_drawer)).clicked(actions) {
+            self.navigate_to_component(cx, "drawer");
+        }
+
+        // Navigation to Popover component
+        if ui.button(ids!(component_link_popover)).clicked(actions) {
+            self.navigate_to_component(cx, "popover");
+        }
+
+        // Navigation to Hover Card component
+        if ui.button(ids!(component_link_hover_card)).clicked(actions) {
+            self.navigate_to_component(cx, "hover_card");
+        }
+
+        // Navigation to Alert Dialog component
+        if ui
+            .button(ids!(component_link_alert_dialog))
+            .clicked(actions)
+        {
+            self.navigate_to_component(cx, "alert_dialog");
+        }
+
+        // Navigation to Tooltip component
+        if ui.button(ids!(component_link_tooltip)).clicked(actions) {
+            self.navigate_to_component(cx, "tooltip");
+        }
+
+        // Navigation to Toast component
+        if ui.button(ids!(component_link_toast)).clicked(actions) {
+            self.navigate_to_component(cx, "toast");
+        }
+
+        // Navigation to Tabs component
+        if ui.button(ids!(component_link_tabs)).clicked(actions) {
+            self.navigate_to_component(cx, "tabs");
+        }
+
+        // Navigation to Table component
+        if ui.button(ids!(component_link_table)).clicked(actions) {
+            self.navigate_to_component(cx, "table");
+        }
+
+        // Navigation to Calendar component
+        if ui.button(ids!(component_link_calendar)).clicked(actions) {
+            self.navigate_to_component(cx, "calendar");
+        }
+
+        // Navigation to Accordion component
+        if ui.button(ids!(component_link_accordion)).clicked(actions) {
+            self.navigate_to_component(cx, "accordion");
+        }
+
+        // Navigation to Alert component
+        if ui.button(ids!(component_link_alert)).clicked(actions) {
+            self.navigate_to_component(cx, "alert");
+        }
+
+        // Navigation to Carousel component
+        if ui.button(ids!(component_link_carousel)).clicked(actions) {
+            self.navigate_to_component(cx, "carousel");
+        }
+
+        // Navigation to Collapsible component
+        if ui.button(ids!(component_link_collapsible)).clicked(actions) {
+            self.navigate_to_component(cx, "collapsible");
+        }
+
+        // Navigation to Context Menu component
+        if ui
+            .button(ids!(component_link_context_menu))
+            .clicked(actions)
+        {
+            self.navigate_to_component(cx, "context_menu");
+        }
+
+        // Navigation to Command component
+        if ui.button(ids!(component_link_command)).clicked(actions) {
+            self.navigate_to_component(cx, "command");
+        }
     }
 }
 
@@ -697,6 +941,23 @@ impl AppWindow {
             ui.view(ids!(avatar_page)).set_visible(cx, false);
             ui.view(ids!(skeleton_page)).set_visible(cx, false);
             ui.view(ids!(progress_page)).set_visible(cx, false);
+            ui.view(ids!(dialog_page)).set_visible(cx, false);
+            ui.view(ids!(sheet_page)).set_visible(cx, false);
+            ui.view(ids!(drawer_page)).set_visible(cx, false);
+            ui.view(ids!(popover_page)).set_visible(cx, false);
+            ui.view(ids!(hover_card_page)).set_visible(cx, false);
+            ui.view(ids!(alert_dialog_page)).set_visible(cx, false);
+            ui.view(ids!(tooltip_page)).set_visible(cx, false);
+            ui.view(ids!(toast_page)).set_visible(cx, false);
+            ui.view(ids!(tabs_page)).set_visible(cx, false);
+            ui.view(ids!(table_page)).set_visible(cx, false);
+            ui.view(ids!(calendar_page)).set_visible(cx, false);
+            ui.view(ids!(accordion_page)).set_visible(cx, false);
+            ui.view(ids!(alert_page)).set_visible(cx, false);
+            ui.view(ids!(carousel_page)).set_visible(cx, false);
+            ui.view(ids!(collapsible_page)).set_visible(cx, false);
+            ui.view(ids!(context_menu_page)).set_visible(cx, false);
+            ui.view(ids!(command_page)).set_visible(cx, false);
 
             ui.view(ids!(getting_started_page_mobile))
                 .set_visible(cx, false);
@@ -785,6 +1046,57 @@ impl AppWindow {
                 ui.view(ids!(progress_page)).set_visible(cx, true);
                 ui.view(ids!(progress_page_mobile)).set_visible(cx, true);
             }
+            "dialog" => {
+                ui.view(ids!(dialog_page)).set_visible(cx, true);
+            }
+            "sheet" => {
+                ui.view(ids!(sheet_page)).set_visible(cx, true);
+            }
+            "drawer" => {
+                ui.view(ids!(drawer_page)).set_visible(cx, true);
+            }
+            "popover" => {
+                ui.view(ids!(popover_page)).set_visible(cx, true);
+            }
+            "hover_card" => {
+                ui.view(ids!(hover_card_page)).set_visible(cx, true);
+            }
+            "alert_dialog" => {
+                ui.view(ids!(alert_dialog_page)).set_visible(cx, true);
+            }
+            "tooltip" => {
+                ui.view(ids!(tooltip_page)).set_visible(cx, true);
+            }
+            "toast" => {
+                ui.view(ids!(toast_page)).set_visible(cx, true);
+            }
+            "tabs" => {
+                ui.view(ids!(tabs_page)).set_visible(cx, true);
+            }
+            "table" => {
+                ui.view(ids!(table_page)).set_visible(cx, true);
+            }
+            "calendar" => {
+                ui.view(ids!(calendar_page)).set_visible(cx, true);
+            }
+            "accordion" => {
+                ui.view(ids!(accordion_page)).set_visible(cx, true);
+            }
+            "alert" => {
+                ui.view(ids!(alert_page)).set_visible(cx, true);
+            }
+            "carousel" => {
+                ui.view(ids!(carousel_page)).set_visible(cx, true);
+            }
+            "collapsible" => {
+                ui.view(ids!(collapsible_page)).set_visible(cx, true);
+            }
+            "context_menu" => {
+                ui.view(ids!(context_menu_page)).set_visible(cx, true);
+            }
+            "command" => {
+                ui.view(ids!(command_page)).set_visible(cx, true);
+            }
             _ => {
                 ui.view(ids!(getting_started_page)).set_visible(cx, true);
                 ui.view(ids!(getting_started_page_mobile))
@@ -809,6 +1121,23 @@ impl AppWindow {
             ("avatar", ids!(component_link_avatar)),
             ("skeleton", ids!(component_link_skeleton)),
             ("progress", ids!(component_link_progress)),
+            ("dialog", ids!(component_link_dialog)),
+            ("sheet", ids!(component_link_sheet)),
+            ("drawer", ids!(component_link_drawer)),
+            ("popover", ids!(component_link_popover)),
+            ("hover_card", ids!(component_link_hover_card)),
+            ("alert_dialog", ids!(component_link_alert_dialog)),
+            ("tooltip", ids!(component_link_tooltip)),
+            ("toast", ids!(component_link_toast)),
+            ("tabs", ids!(component_link_tabs)),
+            ("table", ids!(component_link_table)),
+            ("calendar", ids!(component_link_calendar)),
+            ("accordion", ids!(component_link_accordion)),
+            ("alert", ids!(component_link_alert)),
+            ("carousel", ids!(component_link_carousel)),
+            ("collapsible", ids!(component_link_collapsible)),
+            ("context_menu", ids!(component_link_context_menu)),
+            ("command", ids!(component_link_command)),
         ];
 
         for (name, id) in sidebar_items.iter() {

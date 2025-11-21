@@ -1,0 +1,9 @@
+[package]
+name = "makepad-shadecn-context-menu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+makepad-widgets = { path = "../../../widgets" }
+makepad-shadecn-core = { path = "../../core" }
+

@@ -197,6 +197,108 @@ live_design! {
                     width: Fill,
                     align: {x: 0.0, y: 0.5},
                 }
+
+                component_link_dialog = <ShadecnButtonGhost> {
+                    text: "Dialog",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_sheet = <ShadecnButtonGhost> {
+                    text: "Sheet",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_drawer = <ShadecnButtonGhost> {
+                    text: "Drawer",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_popover = <ShadecnButtonGhost> {
+                    text: "Popover",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_hover_card = <ShadecnButtonGhost> {
+                    text: "Hover Card",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_alert_dialog = <ShadecnButtonGhost> {
+                    text: "Alert Dialog",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_tooltip = <ShadecnButtonGhost> {
+                    text: "Tooltip",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_toast = <ShadecnButtonGhost> {
+                    text: "Toast",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_tabs = <ShadecnButtonGhost> {
+                    text: "Tabs",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_table = <ShadecnButtonGhost> {
+                    text: "Table",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_calendar = <ShadecnButtonGhost> {
+                    text: "Calendar",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_accordion = <ShadecnButtonGhost> {
+                    text: "Accordion",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_alert = <ShadecnButtonGhost> {
+                    text: "Alert",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_carousel = <ShadecnButtonGhost> {
+                    text: "Carousel",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_collapsible = <ShadecnButtonGhost> {
+                    text: "Collapsible",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_context_menu = <ShadecnButtonGhost> {
+                    text: "Context Menu",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_command = <ShadecnButtonGhost> {
+                    text: "Command",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
             }
         }
     }
