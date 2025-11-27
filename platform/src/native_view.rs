@@ -147,6 +147,21 @@ impl Cx {
     }
 }
 
+#[cfg(target_os = "ios")]
+pub use crate::os::apple::ios::ios_native_view::IosNativeViewImpl;
+
+#[cfg(target_os = "ios")]
+impl Cx {
+    /// Register iOS native view implementation from crate
+    pub fn set_ios_native_view_impl(&mut self, impl_: Box<dyn IosNativeViewImpl>) {
+        use crate::os::apple::ios::ios::CxOs;
+        // On iOS, Cx.os is the iOS-specific CxOs
+        // We can safely cast since we're in an iOS-only block
+        let os: &mut CxOs = unsafe { std::mem::transmute(&mut self.os) };
+        os.set_native_view_impl(impl_);
+    }
+}
+
 /// Storage for native views in Cx
 /// This is stored in Cx's globals using type erasure to avoid circular dependencies
 #[derive(Default)]

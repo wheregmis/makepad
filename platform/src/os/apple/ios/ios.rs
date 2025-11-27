@@ -509,6 +509,11 @@ impl Default for PermissionResultChannel {
 
 // Native view API implementation for iOS
 impl CxOs {
+    /// Register native view implementation from crate
+    pub fn set_native_view_impl(&mut self, impl_: Box<dyn super::ios_native_view::IosNativeViewImpl>) {
+        self.native_view_manager.set_impl(impl_);
+    }
+    
     pub fn create_native_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
         self.native_view_manager.create_view(id, config)
     }

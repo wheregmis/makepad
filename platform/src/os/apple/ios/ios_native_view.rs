@@ -1,5 +1,5 @@
 // Minimal stub implementation for iOS native views
-// Full implementation can be provided by makepad-native-components crate
+// Full implementation provided by makepad-native-components crate via trait
 
 use {
     std::collections::HashMap,
@@ -15,10 +15,24 @@ use {
     },
 };
 
-/// Manager for iOS native views (stub)
+/// Trait for iOS native view implementation
+/// Implemented by makepad-native-components crate
+pub trait IosNativeViewImpl: Send + Sync {
+    fn create_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool;
+    fn update_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool;
+    fn destroy_view(&mut self, id: NativeViewId) -> bool;
+    fn set_frame(&mut self, id: NativeViewId, frame: Rect) -> bool;
+    fn send_touch(&mut self, event: NativeViewTouchEvent) -> bool;
+    fn get_texture(&self, id: NativeViewId) -> Option<&NativeViewHandle>;
+    fn poll_events(&mut self) -> Vec<NativeViewEvent>;
+}
+
+/// Manager for iOS native views (delegates to trait implementation)
 pub struct IosNativeViewManager {
     pub views: HashMap<NativeViewId, ()>,
     pub pending_events: Vec<NativeViewEvent>,
+    /// Optional implementation provided by crate
+    pub impl_: Option<Box<dyn IosNativeViewImpl>>,
 }
 
 impl Default for IosNativeViewManager {
@@ -26,6 +40,7 @@ impl Default for IosNativeViewManager {
         Self {
             views: HashMap::new(),
             pending_events: Vec::new(),
+            impl_: None,
         }
     }
 }
@@ -35,32 +50,65 @@ impl IosNativeViewManager {
         Self::default()
     }
     
-    pub fn create_view(&mut self, _id: NativeViewId, _config: &NativeViewConfig) -> bool {
-        false // Stub - returns false
+    /// Set the implementation provided by crate
+    pub fn set_impl(&mut self, impl_: Box<dyn IosNativeViewImpl>) {
+        self.impl_ = Some(impl_);
     }
     
-    pub fn update_view(&mut self, _id: NativeViewId, _config: &NativeViewConfig) -> bool {
-        false // Stub
+    pub fn create_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.create_view(id, config)
+        } else {
+            false
+        }
     }
     
-    pub fn destroy_view(&mut self, _id: NativeViewId) -> bool {
-        self.views.remove(&_id);
-        false // Stub
+    pub fn update_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.update_view(id, config)
+        } else {
+            false
+        }
     }
     
-    pub fn set_frame(&mut self, _id: NativeViewId, _frame: Rect) -> bool {
-        false // Stub
+    pub fn destroy_view(&mut self, id: NativeViewId) -> bool {
+        self.views.remove(&id);
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.destroy_view(id)
+        } else {
+            false
+        }
     }
     
-    pub fn send_touch(&mut self, _event: NativeViewTouchEvent) -> bool {
-        false // Stub
+    pub fn set_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.set_frame(id, frame)
+        } else {
+            false
+        }
     }
     
-    pub fn get_texture(&self, _id: NativeViewId) -> Option<&NativeViewHandle> {
-        None // Stub
+    pub fn send_touch(&mut self, event: NativeViewTouchEvent) -> bool {
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.send_touch(event)
+        } else {
+            false
+        }
+    }
+    
+    pub fn get_texture(&self, id: NativeViewId) -> Option<&NativeViewHandle> {
+        if let Some(impl_) = &self.impl_ {
+            impl_.get_texture(id)
+        } else {
+            None
+        }
     }
     
     pub fn poll_events(&mut self) -> Vec<NativeViewEvent> {
-        std::mem::take(&mut self.pending_events)
+        if let Some(impl_) = &mut self.impl_ {
+            impl_.poll_events()
+        } else {
+            std::mem::take(&mut self.pending_events)
+        }
     }
 }
