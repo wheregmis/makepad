@@ -8,6 +8,9 @@ use {
     std::collections::HashMap,
 };
 
+#[cfg(target_os = "macos")]
+pub use crate::os::apple::macos::macos_native_view::MacosNativeViewImpl;
+
 /// Unique identifier for a native view instance
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, FromLiveId)]
 pub struct NativeViewId(pub LiveId);
@@ -130,6 +133,18 @@ pub trait CxNativeViewApi {
     
     /// Request texture update for a native view
     fn request_native_view_texture_update(&mut self, id: NativeViewId);
+}
+
+#[cfg(target_os = "macos")]
+impl Cx {
+    /// Register macOS native view implementation from crate
+    pub fn set_macos_native_view_impl(&mut self, impl_: Box<dyn MacosNativeViewImpl>) {
+        use crate::os::apple::macos::macos::CxOs;
+        // On macOS, Cx.os is the macOS-specific CxOs
+        // We can safely cast since we're in a macOS-only block
+        let os: &mut CxOs = unsafe { std::mem::transmute(&mut self.os) };
+        os.set_native_view_impl(impl_);
+    }
 }
 
 /// Storage for native views in Cx

@@ -788,6 +788,11 @@ pub struct CxOs {
 
 // Native view API for macOS
 impl CxOs {
+    /// Register native view implementation from crate
+    pub fn set_native_view_impl(&mut self, impl_: Box<dyn super::macos_native_view::MacosNativeViewImpl>) {
+        self.native_view_manager.set_impl(impl_);
+    }
+    
     pub fn create_native_view(&mut self, id: crate::native_view::NativeViewId, config: &crate::native_view::NativeViewConfig) -> bool {
         self.native_view_manager.create_view(id, config)
     }
