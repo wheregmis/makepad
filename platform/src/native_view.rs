@@ -48,25 +48,13 @@ impl Default for NativeViewConfig {
     }
 }
 
-/// Events that can be received from native views
+/// Events received from native views. `kind` is a platform-defined identifier
+/// (e.g. "button_tapped"), and `data` contains stringified key/value pairs.
 #[derive(Clone, Debug)]
-pub enum NativeViewEvent {
-    /// Button was tapped
-    ButtonTapped { id: NativeViewId },
-    /// Text field content changed
-    TextChanged { id: NativeViewId, text: String },
-    /// Text field editing began
-    TextEditingBegan { id: NativeViewId },
-    /// Text field editing ended
-    TextEditingEnded { id: NativeViewId },
-    /// Switch value changed
-    SwitchChanged { id: NativeViewId, on: bool },
-    /// Slider value changed
-    SliderChanged { id: NativeViewId, value: f64 },
-    /// Generic interaction event
-    Interaction { id: NativeViewId, action: String },
-    /// Texture was updated and needs redraw
-    TextureUpdated { id: NativeViewId },
+pub struct NativeViewEvent {
+    pub id: NativeViewId,
+    pub kind: String,
+    pub data: HashMap<String, String>,
 }
 
 /// Touch event to forward to native views
