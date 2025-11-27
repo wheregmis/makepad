@@ -18,6 +18,7 @@ workspace.members = [
     "examples/xr_net",
     "examples/comfyui",
     "examples/native_components",
+    "makepad-native-components",
     "libs/script/test",
     "studio",
     "tools/cargo_makepad",

@@ -12,6 +12,8 @@ Cargo.lock
 .DS_Store
 /platform/bind/windows/generate
 
+/makepad-native-components
+
 /edit_repo
 
 *.mobileprovision

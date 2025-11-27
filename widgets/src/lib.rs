@@ -49,7 +49,6 @@ pub mod tooltip;
 pub mod popup_notification;
 pub mod loading_spinner;
 pub mod web_view;
-pub mod native_view;
 
 // Only available on Android at the moment
 // #[cfg(target_os="android")]
@@ -122,7 +121,6 @@ pub use crate::{
     tooltip::*,
     popup_notification::*,
     video::*,
-    native_view::*,
     radio_button::*,
     text_input::*,
     link_label::*,
@@ -207,7 +205,6 @@ pub fn live_design(cx: &mut Cx) {
     crate::tooltip::live_design(cx);
     crate::popup_notification::live_design(cx);
     crate::video::live_design(cx);
-    crate::native_view::live_design(cx);
     crate::view::live_design(cx);
     crate::adaptive_view::live_design(cx);
     crate::view_ui::live_design(cx);
