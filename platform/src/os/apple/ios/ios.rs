@@ -489,7 +489,7 @@ pub struct CxOs {
     pub (crate) network_response: NetworkResponseChannel,
     pub (crate) http_requests: AppleHttpRequests,
     pub (crate) permission_response: PermissionResultChannel,
-    pub (crate) native_view_manager: ios_native_view::IosNativeViewManager,
+    pub (crate) native_view_manager: crate::os::apple::apple_native_view::AppleNativeViewManager,
 }
 
 pub struct PermissionResultChannel {
@@ -510,7 +510,7 @@ impl Default for PermissionResultChannel {
 // Native view API implementation for iOS
 impl CxOs {
     /// Register native view implementation from crate
-    pub fn set_native_view_impl(&mut self, impl_: Box<dyn super::ios_native_view::IosNativeViewImpl>) {
+    pub fn set_native_view_impl(&mut self, impl_: Box<dyn crate::os::apple::apple_native_view::AppleNativeViewImpl>) {
         self.native_view_manager.set_impl(impl_);
     }
     

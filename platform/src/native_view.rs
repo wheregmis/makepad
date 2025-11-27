@@ -8,8 +8,8 @@ use {
     std::collections::HashMap,
 };
 
-#[cfg(target_os = "macos")]
-pub use crate::os::apple::macos::macos_native_view::MacosNativeViewImpl;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use crate::os::apple::apple_native_view::AppleNativeViewImpl;
 
 /// Unique identifier for a native view instance
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, FromLiveId)]
@@ -138,7 +138,7 @@ pub trait CxNativeViewApi {
 #[cfg(target_os = "macos")]
 impl Cx {
     /// Register macOS native view implementation from crate
-    pub fn set_macos_native_view_impl(&mut self, impl_: Box<dyn MacosNativeViewImpl>) {
+    pub fn set_macos_native_view_impl(&mut self, impl_: Box<dyn AppleNativeViewImpl>) {
         use crate::os::apple::macos::macos::CxOs;
         // On macOS, Cx.os is the macOS-specific CxOs
         // We can safely cast since we're in a macOS-only block
@@ -148,12 +148,9 @@ impl Cx {
 }
 
 #[cfg(target_os = "ios")]
-pub use crate::os::apple::ios::ios_native_view::IosNativeViewImpl;
-
-#[cfg(target_os = "ios")]
 impl Cx {
     /// Register iOS native view implementation from crate
-    pub fn set_ios_native_view_impl(&mut self, impl_: Box<dyn IosNativeViewImpl>) {
+    pub fn set_ios_native_view_impl(&mut self, impl_: Box<dyn AppleNativeViewImpl>) {
         use crate::os::apple::ios::ios::CxOs;
         // On iOS, Cx.os is the iOS-specific CxOs
         // We can safely cast since we're in an iOS-only block

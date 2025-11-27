@@ -783,13 +783,13 @@ pub struct CxOs {
     pub (crate) start_time: Option<Instant>,
     pub (crate) http_requests: AppleHttpRequests,
     pub metal_device: Option<ObjcId>,
-    pub (crate) native_view_manager: super::macos_native_view::MacosNativeViewManager,
+    pub (crate) native_view_manager: crate::os::apple::apple_native_view::AppleNativeViewManager,
 }
 
 // Native view API for macOS
 impl CxOs {
     /// Register native view implementation from crate
-    pub fn set_native_view_impl(&mut self, impl_: Box<dyn super::macos_native_view::MacosNativeViewImpl>) {
+    pub fn set_native_view_impl(&mut self, impl_: Box<dyn crate::os::apple::apple_native_view::AppleNativeViewImpl>) {
         self.native_view_manager.set_impl(impl_);
     }
     
