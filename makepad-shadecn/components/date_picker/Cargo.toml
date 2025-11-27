@@ -1,5 +1,5 @@
 [package]
-name = "makepad-shadecn-pagination"
+name = "makepad-shadecn-date-picker"
 version = "0.1.0"
 edition = "2021"
 

@@ -8,6 +8,9 @@ live_design! {
     use link::widgets::*;
     use makepad_code_editor::code_view::CodeView;
     use crate::components::button::*;
+    
+    link shadecn_input;
+    use link::shadecn_input::*;
 
     // Input Component Showcase
     pub InputShowcase = <ComponentSection> {

@@ -1,4 +1,3 @@
-use makepad_shadecn_core::theme::*;
 use makepad_widgets::*;
 
 live_design! {
@@ -9,13 +8,13 @@ live_design! {
 
     pub ShadecnSwitch = <CheckBoxFlat> {
         width: Fit,
-        height: 24.0,
+        height: 22.0,
         padding: 0.0,
 
         icon_walk: {width: 0.0, height: 0.0}
 
         label_walk: {
-            margin: {left: (44.0 + SPACE_2)}
+            margin: {left: (SPACE_3 + 42.0)}
         }
 
         draw_text: {
@@ -34,32 +33,35 @@ live_design! {
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
 
-                let w = 44.0;
-                let h = 24.0;
+                let w = 42.0;
+                let h = 22.0;
 
                 // Track
-                sdf.box(0.0, 0.0, w, h, h * 0.5);
+                let track_radius = h * 0.5;
+                let track_border = 1.0;
+                sdf.box(track_border, track_border, w - track_border * 2.0, h - track_border * 2.0, track_radius);
 
-                let track_color = mix(
-                    (COLOR_SLATE_200), // Unchecked (input color)
-                    (COLOR_PRIMARY),     // Checked
-                    self.active
-                );
+                let base_off = COLOR_SLATE_200;
+                let base_on = COLOR_PRIMARY;
+                let base_disabled = COLOR_BG_DISABLED;
+                let track_color_enabled = mix(base_off, base_on, self.active);
+                let track_color = mix(track_color_enabled, base_disabled, self.disabled);
 
-                sdf.fill(track_color);
+                sdf.fill_keep(track_color);
+                sdf.stroke(COLOR_BORDER_PRIMARY * vec4(1.0, 1.0, 1.0, 0.35), track_border);
 
                 // Thumb
-                let thumb_size = h - 4.0;
-                let thumb_padding = 2.0;
+                let thumb_size = h - 8.0;
+                let thumb_padding = 4.0;
 
                 let thumb_x_off = thumb_padding;
                 let thumb_x_on = w - thumb_size - thumb_padding;
-
                 let thumb_x = mix(thumb_x_off, thumb_x_on, self.active);
 
                 sdf.circle(thumb_x + thumb_size * 0.5, h * 0.5, thumb_size * 0.5);
-
-                sdf.fill((COLOR_BG_PRIMARY));
+                let thumb_color = mix(COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, self.disabled);
+                sdf.fill_keep(thumb_color);
+                sdf.stroke(COLOR_BORDER_PRIMARY * vec4(1.0, 1.0, 1.0, 0.45), 1.0);
 
                 return sdf.result
             }

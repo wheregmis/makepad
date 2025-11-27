@@ -43,22 +43,22 @@ live_design! {
                         flow: Down,
                         spacing: (SPACE_4),
                         padding: {left: (SPACE_4), top: (SPACE_4), right: (SPACE_4), bottom: (SPACE_4)},
-                        
+
                         <ShadecnProgress> {
                             indicator = { width: 150.0 }
                         }
-                        
+
                         <ShadecnProgress> {
                             indicator = { width: 80.0 }
                         }
-                        
+
                         <ShadecnProgress> {
                             indicator = { width: 200.0, draw_bg: { color: (COLOR_SUCCESS) } }
                         }
                     }
                 }
             }
-            
+
             markdown_example = <MarkdownSection> {
                 markdown_content = {
                     body: "\n## Example\n\n```rust\n<ShadecnProgress> {\n    indicator = { width: 100.0 }\n}\n```"

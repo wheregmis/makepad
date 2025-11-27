@@ -22,4 +22,13 @@ makepad-shadecn-slider = { path = "../../components/slider", version = "0.1.0" }
 makepad-shadecn-avatar = { path = "../../components/avatar", version = "0.1.0" }
 makepad-shadecn-skeleton = { path = "../../components/skeleton", version = "0.1.0" }
 makepad-shadecn-progress = { path = "../../components/progress", version = "0.1.0" }
+makepad-shadecn-select = { path = "../../components/select", version = "0.1.0" }
+makepad-shadecn-combobox = { path = "../../components/combobox", version = "0.1.0" }
+makepad-shadecn-date-picker = { path = "../../components/date_picker", version = "0.1.0" }
+makepad-shadecn-time-picker = { path = "../../components/time_picker", version = "0.1.0" }
 makepad-code-editor = { path = "../../../code_editor", version = "1.0.0" }
+makepad-shadecn-tabs = { path = "../../components/tabs", version = "0.1.0" }
+makepad-shadecn-navigation-menu = { path = "../../components/navigation_menu", version = "0.1.0" }
+makepad-shadecn-pagination = { path = "../../components/pagination", version = "0.1.0" }
+makepad-shadecn-menubar = { path = "../../components/menubar", version = "0.1.0" }
+makepad-shadecn-resizable = { path = "../../components/resizable", version = "0.1.0" }

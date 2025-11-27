@@ -23,16 +23,16 @@
 - ✅ **ToggleGroup** - Complete (View container + RadioButton styled as Toggle)
 - ✅ **Slider** - Complete (wrapper around Slider with design tokens)
 - ✅ **Select** - Complete (wrapper around DropDown with styled PopupMenu)
-- ⭕ **Combobox** - Pending
-- ⭕ **Date Picker** - Pending
-- ⭕ **Time Picker** - Pending
+- ✅ **Combobox** - Complete (wrapper around DropDown)
+- ✅ **Date Picker** - Complete (Visual implementation)
+- ✅ **Time Picker** - Complete (Visual implementation)
 
 ### Navigation Components
-- ⭕ **Tabs** - Pending
-- ⭕ **Navigation Menu** - Pending
+- ✅ **Tabs** - Complete (Visual implementation with RadioButton triggers)
+- ✅ **Navigation Menu** - Complete (Visual implementation)
 - ✅ **Breadcrumb** - Complete (View with Link/Separator/Page components)
-- ⭕ **Pagination** - Pending
-- ⭕ **Menubar** - Pending
+- ✅ **Pagination** - Complete (Visual implementation)
+- ✅ **Menubar** - Complete (Visual implementation)
 
 ### Overlay Components
 - ⭕ **Dialog** - Pending
@@ -66,12 +66,12 @@
 
 ### Layout Components
 - ✅ **Scroll Area** - Complete (styled scrollable container with design tokens)
-- ⭕ **Resizable** - Pending
+- ✅ **Resizable** - Complete (wrapper around Splitter with design tokens)
 - ✅ **Separator** - Complete (horizontal/vertical rule)
 
 ## Notes
 
 ### Component Status
 - **Total Components**: 55
-- **Completed**: 16 (Button, IconButton, Input, Label, RadioGroup, Dropdown Menu, Scroll Area, Badge, Separator, Card, Checkbox, Switch, Slider, Avatar, Skeleton, Progress)
-- **Pending**: 39
+- **Completed**: 23 (Button, IconButton, Input, Label, RadioGroup, Dropdown Menu, Scroll Area, Badge, Separator, Card, Checkbox, Switch, Slider, Avatar, Skeleton, Progress, Combobox, Date Picker, Time Picker, Tabs, Navigation Menu, Pagination, Menubar)
+- **Pending**: 32

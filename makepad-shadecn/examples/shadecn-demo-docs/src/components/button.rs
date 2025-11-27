@@ -7,6 +7,9 @@ live_design! {
     use link::shaders::*;
     use link::widgets::*;
     use makepad_code_editor::code_view::CodeView;
+    
+    link shadecn_button;
+    use link::shadecn_button::*;
 
     // Documentation component that can mix markdown and component demos
     pub DocContentWithMarkdown = <View> {

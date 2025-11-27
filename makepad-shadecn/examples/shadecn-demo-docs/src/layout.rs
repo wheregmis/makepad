@@ -7,6 +7,12 @@ live_design! {
     use link::theme::*;
     use link::shaders::*;
     use link::widgets::*;
+    
+    link shadecn_button;
+    use link::shadecn_button::*;
+    
+    link shadecn_input;
+    use link::shadecn_input::*;
 
     // Documentation Header
     pub DocHeader = <View> {
@@ -197,6 +203,54 @@ live_design! {
                     width: Fill,
                     align: {x: 0.0, y: 0.5},
                 }
+
+                component_link_combobox = <ShadecnButtonGhost> {
+                    text: "Combobox",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_date_picker = <ShadecnButtonGhost> {
+                    text: "Date Picker",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_menubar = <ShadecnButtonGhost> {
+                    text: "Menubar",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_navigation_menu = <ShadecnButtonGhost> {
+                    text: "Navigation Menu",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_pagination = <ShadecnButtonGhost> {
+                    text: "Pagination",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_resizable = <ShadecnButtonGhost> {
+                    text: "Resizable",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_tabs = <ShadecnButtonGhost> {
+                    text: "Tabs",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
+
+                component_link_time_picker = <ShadecnButtonGhost> {
+                    text: "Time Picker",
+                    width: Fill,
+                    align: {x: 0.0, y: 0.5},
+                }
             }
         }
     }
@@ -356,6 +410,54 @@ live_design! {
 
                         search_result_progress = <ShadecnButtonGhost> {
                             text: "Progress",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_combobox = <ShadecnButtonGhost> {
+                            text: "Combobox",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_date_picker = <ShadecnButtonGhost> {
+                            text: "Date Picker",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_menubar = <ShadecnButtonGhost> {
+                            text: "Menubar",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_navigation_menu = <ShadecnButtonGhost> {
+                            text: "Navigation Menu",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_pagination = <ShadecnButtonGhost> {
+                            text: "Pagination",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_resizable = <ShadecnButtonGhost> {
+                            text: "Resizable",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_tabs = <ShadecnButtonGhost> {
+                            text: "Tabs",
+                            width: Fill,
+                            align: {x: 0.0, y: 0.5},
+                        }
+
+                        search_result_time_picker = <ShadecnButtonGhost> {
+                            text: "Time Picker",
                             width: Fill,
                             align: {x: 0.0, y: 0.5},
                         }

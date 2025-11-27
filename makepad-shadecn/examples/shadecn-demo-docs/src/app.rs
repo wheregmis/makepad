@@ -1,12 +1,16 @@
 use makepad_shadecn_avatar::*;
 use makepad_shadecn_card::*;
 use makepad_shadecn_checkbox::*;
+use makepad_shadecn_combobox::*;
 use makepad_shadecn_core::*;
+use makepad_shadecn_date_picker::*;
 use makepad_shadecn_input::*;
 use makepad_shadecn_progress::*;
+use makepad_shadecn_resizable::*;
 use makepad_shadecn_skeleton::*;
 use makepad_shadecn_slider::*;
 use makepad_shadecn_switch::*;
+use makepad_shadecn_time_picker::*;
 use makepad_widgets::*;
 
 use crate::layout;
@@ -31,6 +35,14 @@ live_design! {
     use crate::components::avatar::*;
     use crate::components::skeleton::*;
     use crate::components::progress::*;
+    use crate::components::combobox::*;
+    use crate::components::date_picker::*;
+    use crate::components::menubar::*;
+    use crate::components::navigation_menu::*;
+    use crate::components::pagination::*;
+    use crate::components::resizable::*;
+    use crate::components::tabs::*;
+    use crate::components::time_picker::*;
     use link::widgets::*;
 
     AppWindow = {{AppWindow}} {
@@ -177,6 +189,46 @@ live_design! {
                                             progress_page = <ProgressShowcase> {
                                                 visible: false
                                             }
+
+                                            // Combobox Component Page
+                                            combobox_page = <ComboboxShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Date Picker Component Page
+                                            date_picker_page = <DatePickerShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Menubar Component Page
+                                            menubar_page = <MenubarShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Navigation Menu Component Page
+                                            navigation_menu_page = <NavigationMenuShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Pagination Component Page
+                                            pagination_page = <PaginationShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Resizable Component Page
+                                            resizable_page = <ResizableShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Tabs Component Page
+                                            tabs_page = <TabsShowcase> {
+                                                visible: false
+                                            }
+
+                                            // Time Picker Component Page
+                                            time_picker_page = <TimePickerShowcase> {
+                                                visible: false
+                                            }
                                         }
                                     }
                                 }
@@ -299,6 +351,46 @@ live_design! {
                                         progress_page_mobile = <ProgressShowcase> {
                                             visible: false
                                         }
+
+                                        // Combobox Component Page
+                                        combobox_page_mobile = <ComboboxShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Date Picker Component Page
+                                        date_picker_page_mobile = <DatePickerShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Menubar Component Page
+                                        menubar_page_mobile = <MenubarShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Navigation Menu Component Page
+                                        navigation_menu_page_mobile = <NavigationMenuShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Pagination Component Page
+                                        pagination_page_mobile = <PaginationShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Resizable Component Page
+                                        resizable_page_mobile = <ResizableShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Tabs Component Page
+                                        tabs_page_mobile = <TabsShowcase> {
+                                            visible: false
+                                        }
+
+                                        // Time Picker Component Page
+                                        time_picker_page_mobile = <TimePickerShowcase> {
+                                            visible: false
+                                        }
                                     }
                                 }
                             }
@@ -341,6 +433,9 @@ impl LiveRegister for AppWindow {
         makepad_shadecn_avatar::live_design(cx);
         makepad_shadecn_skeleton::live_design(cx);
         makepad_shadecn_progress::live_design(cx);
+        makepad_shadecn_combobox::live_design(cx);
+        makepad_shadecn_date_picker::live_design(cx);
+        makepad_shadecn_time_picker::live_design(cx);
         makepad_code_editor::live_design(cx);
         layout::live_design(cx);
         crate::components::button::live_design(cx);
@@ -358,6 +453,19 @@ impl LiveRegister for AppWindow {
         crate::components::avatar::live_design(cx);
         crate::components::skeleton::live_design(cx);
         crate::components::progress::live_design(cx);
+        makepad_shadecn_tabs::live_design(cx);
+        makepad_shadecn_navigation_menu::live_design(cx);
+        makepad_shadecn_pagination::live_design(cx);
+        makepad_shadecn_menubar::live_design(cx);
+        makepad_shadecn_resizable::live_design(cx);
+        crate::components::combobox::live_design(cx);
+        crate::components::date_picker::live_design(cx);
+        crate::components::menubar::live_design(cx);
+        crate::components::navigation_menu::live_design(cx);
+        crate::components::pagination::live_design(cx);
+        crate::components::resizable::live_design(cx);
+        crate::components::tabs::live_design(cx);
+        crate::components::time_picker::live_design(cx);
     }
 }
 
@@ -422,6 +530,41 @@ impl MatchEvent for AppWindow {
         if ui2.button(ids!(search_result_progress)).clicked(actions) {
             self.popup_item_clicked = true;
             self.navigate_to_component(cx, "progress");
+        }
+        if ui2.button(ids!(search_result_combobox)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "combobox");
+        }
+        if ui2.button(ids!(search_result_date_picker)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "date_picker");
+        }
+        if ui2.button(ids!(search_result_menubar)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "menubar");
+        }
+        if ui2
+            .button(ids!(search_result_navigation_menu))
+            .clicked(actions)
+        {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "navigation_menu");
+        }
+        if ui2.button(ids!(search_result_pagination)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "pagination");
+        }
+        if ui2.button(ids!(search_result_resizable)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "resizable");
+        }
+        if ui2.button(ids!(search_result_tabs)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "tabs");
+        }
+        if ui2.button(ids!(search_result_time_picker)).clicked(actions) {
+            self.popup_item_clicked = true;
+            self.navigate_to_component(cx, "time_picker");
         }
 
         // Handle radio button group selection (make them mutually exclusive)
@@ -559,6 +702,49 @@ impl MatchEvent for AppWindow {
         if ui.button(ids!(component_link_progress)).clicked(actions) {
             self.navigate_to_component(cx, "progress");
         }
+
+        // Navigation to Combobox component
+        if ui.button(ids!(component_link_combobox)).clicked(actions) {
+            self.navigate_to_component(cx, "combobox");
+        }
+
+        // Navigation to Date Picker component
+        if ui.button(ids!(component_link_date_picker)).clicked(actions) {
+            self.navigate_to_component(cx, "date_picker");
+        }
+
+        // Navigation to Menubar component
+        if ui.button(ids!(component_link_menubar)).clicked(actions) {
+            self.navigate_to_component(cx, "menubar");
+        }
+
+        // Navigation to Navigation Menu component
+        if ui
+            .button(ids!(component_link_navigation_menu))
+            .clicked(actions)
+        {
+            self.navigate_to_component(cx, "navigation_menu");
+        }
+
+        // Navigation to Pagination component
+        if ui.button(ids!(component_link_pagination)).clicked(actions) {
+            self.navigate_to_component(cx, "pagination");
+        }
+
+        // Navigation to Resizable component
+        if ui.button(ids!(component_link_resizable)).clicked(actions) {
+            self.navigate_to_component(cx, "resizable");
+        }
+
+        // Navigation to Tabs component
+        if ui.button(ids!(component_link_tabs)).clicked(actions) {
+            self.navigate_to_component(cx, "tabs");
+        }
+
+        // Navigation to Time Picker component
+        if ui.button(ids!(component_link_time_picker)).clicked(actions) {
+            self.navigate_to_component(cx, "time_picker");
+        }
     }
 }
 
@@ -620,6 +806,26 @@ impl AppWindow {
             ("progress", ids!(search_result_progress), "progress"),
             ("bar", ids!(search_result_progress), "progress"),
             ("loading bar", ids!(search_result_progress), "progress"),
+            ("combobox", ids!(search_result_combobox), "combobox"),
+            (
+                "date picker",
+                ids!(search_result_date_picker),
+                "date_picker",
+            ),
+            ("menubar", ids!(search_result_menubar), "menubar"),
+            (
+                "navigation menu",
+                ids!(search_result_navigation_menu),
+                "navigation_menu",
+            ),
+            ("pagination", ids!(search_result_pagination), "pagination"),
+            ("resizable", ids!(search_result_resizable), "resizable"),
+            ("tabs", ids!(search_result_tabs), "tabs"),
+            (
+                "time picker",
+                ids!(search_result_time_picker),
+                "time_picker",
+            ),
         ];
 
         // Get all result button IDs
@@ -639,6 +845,14 @@ impl AppWindow {
             ids!(search_result_avatar),
             ids!(search_result_skeleton),
             ids!(search_result_progress),
+            ids!(search_result_combobox),
+            ids!(search_result_date_picker),
+            ids!(search_result_menubar),
+            ids!(search_result_navigation_menu),
+            ids!(search_result_pagination),
+            ids!(search_result_resizable),
+            ids!(search_result_tabs),
+            ids!(search_result_time_picker),
         ];
 
         if query.is_empty() {
@@ -697,6 +911,14 @@ impl AppWindow {
             ui.view(ids!(avatar_page)).set_visible(cx, false);
             ui.view(ids!(skeleton_page)).set_visible(cx, false);
             ui.view(ids!(progress_page)).set_visible(cx, false);
+            ui.view(ids!(combobox_page)).set_visible(cx, false);
+            ui.view(ids!(date_picker_page)).set_visible(cx, false);
+            ui.view(ids!(menubar_page)).set_visible(cx, false);
+            ui.view(ids!(navigation_menu_page)).set_visible(cx, false);
+            ui.view(ids!(pagination_page)).set_visible(cx, false);
+            ui.view(ids!(resizable_page)).set_visible(cx, false);
+            ui.view(ids!(tabs_page)).set_visible(cx, false);
+            ui.view(ids!(time_picker_page)).set_visible(cx, false);
 
             ui.view(ids!(getting_started_page_mobile))
                 .set_visible(cx, false);
@@ -718,6 +940,17 @@ impl AppWindow {
             ui.view(ids!(avatar_page_mobile)).set_visible(cx, false);
             ui.view(ids!(skeleton_page_mobile)).set_visible(cx, false);
             ui.view(ids!(progress_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(combobox_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(date_picker_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(menubar_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(navigation_menu_page_mobile))
+                .set_visible(cx, false);
+            ui.view(ids!(pagination_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(resizable_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(tabs_page_mobile)).set_visible(cx, false);
+            ui.view(ids!(time_picker_page_mobile))
+                .set_visible(cx, false);
         };
 
         hide_all(cx, &ui);
@@ -785,6 +1018,39 @@ impl AppWindow {
                 ui.view(ids!(progress_page)).set_visible(cx, true);
                 ui.view(ids!(progress_page_mobile)).set_visible(cx, true);
             }
+            "combobox" => {
+                ui.view(ids!(combobox_page)).set_visible(cx, true);
+                ui.view(ids!(combobox_page_mobile)).set_visible(cx, true);
+            }
+            "date_picker" => {
+                ui.view(ids!(date_picker_page)).set_visible(cx, true);
+                ui.view(ids!(date_picker_page_mobile)).set_visible(cx, true);
+            }
+            "menubar" => {
+                ui.view(ids!(menubar_page)).set_visible(cx, true);
+                ui.view(ids!(menubar_page_mobile)).set_visible(cx, true);
+            }
+            "navigation_menu" => {
+                ui.view(ids!(navigation_menu_page)).set_visible(cx, true);
+                ui.view(ids!(navigation_menu_page_mobile))
+                    .set_visible(cx, true);
+            }
+            "pagination" => {
+                ui.view(ids!(pagination_page)).set_visible(cx, true);
+                ui.view(ids!(pagination_page_mobile)).set_visible(cx, true);
+            }
+            "resizable" => {
+                ui.view(ids!(resizable_page)).set_visible(cx, true);
+                ui.view(ids!(resizable_page_mobile)).set_visible(cx, true);
+            }
+            "tabs" => {
+                ui.view(ids!(tabs_page)).set_visible(cx, true);
+                ui.view(ids!(tabs_page_mobile)).set_visible(cx, true);
+            }
+            "time_picker" => {
+                ui.view(ids!(time_picker_page)).set_visible(cx, true);
+                ui.view(ids!(time_picker_page_mobile)).set_visible(cx, true);
+            }
             _ => {
                 ui.view(ids!(getting_started_page)).set_visible(cx, true);
                 ui.view(ids!(getting_started_page_mobile))
@@ -809,6 +1075,14 @@ impl AppWindow {
             ("avatar", ids!(component_link_avatar)),
             ("skeleton", ids!(component_link_skeleton)),
             ("progress", ids!(component_link_progress)),
+            ("combobox", ids!(component_link_combobox)),
+            ("date_picker", ids!(component_link_date_picker)),
+            ("menubar", ids!(component_link_menubar)),
+            ("navigation_menu", ids!(component_link_navigation_menu)),
+            ("pagination", ids!(component_link_pagination)),
+            ("resizable", ids!(component_link_resizable)),
+            ("tabs", ids!(component_link_tabs)),
+            ("time_picker", ids!(component_link_time_picker)),
         ];
 
         for (name, id) in sidebar_items.iter() {

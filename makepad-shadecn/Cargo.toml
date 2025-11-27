@@ -22,7 +22,15 @@ members = [
     "components/toggle",
     "components/toggle-group",
     "components/select",
+    "components/combobox",
+    "components/date_picker",
+    "components/time_picker",
     "components/breadcrumb",
+    "components/tabs",
+    "components/navigation_menu",
+    "components/pagination",
+    "components/menubar",
+    "components/resizable",
     "examples/shadecn-demo-docs",
 ]
 

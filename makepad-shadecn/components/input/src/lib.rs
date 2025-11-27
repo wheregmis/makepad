@@ -2,6 +2,7 @@ use makepad_widgets::*;
 
 live_design! {
     link widgets;
+    link shadecn_input;
     use link::widgets::*;
     use link::theme::*;
     use link::shaders::*;

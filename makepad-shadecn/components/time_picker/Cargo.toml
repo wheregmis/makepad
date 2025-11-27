@@ -1,9 +1,9 @@
 [package]
-name = "makepad-shadecn-pagination"
+name = "makepad-shadecn-time-picker"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 makepad-widgets = { path = "../../../widgets" }
 makepad-shadecn-core = { path = "../../core" }
-makepad-shadecn-button = { path = "../button" }
+makepad-shadecn-input = { path = "../input" }

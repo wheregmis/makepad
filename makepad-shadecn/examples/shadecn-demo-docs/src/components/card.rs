@@ -7,6 +7,12 @@ live_design! {
     use link::shaders::*;
     use link::widgets::*;
     use crate::components::button::*; // Import shared components like ComponentSection
+    
+    link shadecn_button;
+    use link::shadecn_button::*;
+    
+    link shadecn_input;
+    use link::shadecn_input::*;
 
     pub CardShowcase = <ComponentSection> {
         section_header = {

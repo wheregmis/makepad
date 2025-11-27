@@ -1,5 +1,5 @@
-use makepad_widgets::*;
 use makepad_shadecn_core::theme::*;
+use makepad_widgets::*;
 
 live_design! {
     link widgets;
@@ -15,7 +15,7 @@ live_design! {
             color: (COLOR_BG_SECONDARY),
             border_radius: (RADIUS_LG),
         }
-        
+
         indicator = <RoundedView> {
             width: 0.0, // Set this programmatically or via DSL
             height: Fill,
