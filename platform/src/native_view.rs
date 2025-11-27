@@ -133,6 +133,7 @@ pub trait CxNativeViewApi {
 }
 
 /// Storage for native views in Cx
+/// This is stored in Cx's globals using type erasure to avoid circular dependencies
 #[derive(Default)]
 pub struct CxNativeViews {
     pub views: HashMap<NativeViewId, NativeViewState>,
@@ -147,10 +148,66 @@ pub struct NativeViewState {
 }
 
 impl Cx {
+    /// Get or create native views storage from globals
+    fn get_or_create_native_views(&mut self) -> &mut CxNativeViews {
+        use std::any::{TypeId, Any};
+        const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
+        
+        // Find existing storage
+        let mut found_index = None;
+        for (idx, (type_id, _)) in self.globals.iter().enumerate() {
+            if *type_id == TYPE_ID {
+                found_index = Some(idx);
+                break;
+            }
+        }
+        
+        if let Some(idx) = found_index {
+            // Get existing storage
+            let (_, global) = &mut self.globals[idx];
+            return global.downcast_mut::<CxNativeViews>().unwrap();
+        }
+        
+        // Create new storage
+        let views = Box::new(CxNativeViews::default());
+        self.globals.push((TYPE_ID, views));
+        
+        // Get it back (we just added it, so it's the last one)
+        let (_, global) = self.globals.last_mut().unwrap();
+        global.downcast_mut::<CxNativeViews>().unwrap()
+    }
+    
+    /// Get native views storage from globals
+    fn get_native_views(&self) -> Option<&CxNativeViews> {
+        use std::any::{TypeId, Any};
+        const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
+        
+        for (type_id, global) in &self.globals {
+            if *type_id == TYPE_ID {
+                return global.downcast_ref::<CxNativeViews>();
+            }
+        }
+        None
+    }
+    
+    /// Get mutable native views storage from globals
+    fn get_native_views_mut(&mut self) -> Option<&mut CxNativeViews> {
+        use std::any::{TypeId, Any};
+        const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
+        
+        for (type_id, global) in &mut self.globals {
+            if *type_id == TYPE_ID {
+                return global.downcast_mut::<CxNativeViews>();
+            }
+        }
+        None
+    }
+    
     /// Create a new native view
     pub fn create_native_view(&mut self, id: NativeViewId, config: NativeViewConfig) -> bool {
         // Store the configuration
-        self.native_views.views.insert(id, NativeViewState {
+        let views = self.get_or_create_native_views();
+        views.views.insert(id, NativeViewState {
             config: config.clone(),
             handle: None,
             needs_texture_update: true,
@@ -176,18 +233,20 @@ impl Cx {
     
     /// Update a native view's configuration
     pub fn update_native_view(&mut self, id: NativeViewId, config: NativeViewConfig) -> bool {
-        if let Some(state) = self.native_views.views.get_mut(&id) {
-            state.config = config.clone();
-            state.needs_texture_update = true;
-            
-            #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
-            {
-                return self.os.update_native_view(id, &config);
-            }
-            
-            #[cfg(target_os = "android")]
-            {
-                return self.os.update_native_view(id, &config);
+        if let Some(views) = self.get_native_views_mut() {
+            if let Some(state) = views.views.get_mut(&id) {
+                state.config = config.clone();
+                state.needs_texture_update = true;
+                
+                #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
+                {
+                    return self.os.update_native_view(id, &config);
+                }
+                
+                #[cfg(target_os = "android")]
+                {
+                    return self.os.update_native_view(id, &config);
+                }
             }
         }
         
@@ -196,7 +255,9 @@ impl Cx {
     
     /// Destroy a native view
     pub fn destroy_native_view(&mut self, id: NativeViewId) -> bool {
-        self.native_views.views.remove(&id);
+        if let Some(views) = self.get_native_views_mut() {
+            views.views.remove(&id);
+        }
         
         #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
         {
@@ -216,18 +277,20 @@ impl Cx {
     
     /// Set the frame of a native view
     pub fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
-        if let Some(state) = self.native_views.views.get_mut(&id) {
-            state.config.frame = frame;
-            state.needs_texture_update = true;
-            
-            #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
-            {
-                return self.os.set_native_view_frame(id, frame);
-            }
-            
-            #[cfg(target_os = "android")]
-            {
-                return self.os.set_native_view_frame(id, frame);
+        if let Some(views) = self.get_native_views_mut() {
+            if let Some(state) = views.views.get_mut(&id) {
+                state.config.frame = frame;
+                state.needs_texture_update = true;
+                
+                #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
+                {
+                    return self.os.set_native_view_frame(id, frame);
+                }
+                
+                #[cfg(target_os = "android")]
+                {
+                    return self.os.set_native_view_frame(id, frame);
+                }
             }
         }
         
@@ -236,7 +299,8 @@ impl Cx {
     
     /// Get the texture for a native view
     pub fn get_native_view_texture(&self, id: NativeViewId) -> Option<&Texture> {
-        self.native_views.views.get(&id)
+        self.get_native_views()
+            .and_then(|views| views.views.get(&id))
             .and_then(|state| state.handle.as_ref())
             .map(|handle| &handle.texture)
     }
@@ -255,7 +319,11 @@ impl Cx {
         
         #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos", target_os = "android")))]
         {
-            std::mem::take(&mut self.native_views.pending_events)
+            if let Some(views) = self.get_native_views_mut() {
+                std::mem::take(&mut views.pending_events)
+            } else {
+                Vec::new()
+            }
         }
     }
     
