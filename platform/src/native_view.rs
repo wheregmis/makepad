@@ -177,7 +177,7 @@ pub struct NativeViewState {
 impl Cx {
     /// Get or create native views storage from globals
     fn get_or_create_native_views(&mut self) -> &mut CxNativeViews {
-        use std::any::{TypeId, Any};
+        use std::any::TypeId;
         const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
         
         // Find existing storage
@@ -206,7 +206,7 @@ impl Cx {
     
     /// Get native views storage from globals
     fn get_native_views(&self) -> Option<&CxNativeViews> {
-        use std::any::{TypeId, Any};
+        use std::any::TypeId;
         const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
         
         for (type_id, global) in &self.globals {
@@ -219,7 +219,7 @@ impl Cx {
     
     /// Get mutable native views storage from globals
     fn get_native_views_mut(&mut self) -> Option<&mut CxNativeViews> {
-        use std::any::{TypeId, Any};
+        use std::any::TypeId;
         const TYPE_ID: TypeId = TypeId::of::<CxNativeViews>();
         
         for (type_id, global) in &mut self.globals {
