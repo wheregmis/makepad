@@ -9,6 +9,5 @@ pub mod amidi_sys;
 pub mod acamera_sys;
 pub mod android_camera;
 pub mod android_web_socket;
-pub mod android_native_view;
 pub mod ndk_utils;
 pub mod ndk_sys;

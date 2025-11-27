@@ -249,12 +249,7 @@ impl Cx {
             return self.os.create_native_view(id, &config);
         }
         
-        #[cfg(target_os = "android")]
-        {
-            return self.os.create_native_view(id, &config);
-        }
-        
-        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos", target_os = "android")))]
+        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos")))]
         {
             // Unsupported platform
             false
@@ -273,10 +268,6 @@ impl Cx {
                     return self.os.update_native_view(id, &config);
                 }
                 
-                #[cfg(target_os = "android")]
-                {
-                    return self.os.update_native_view(id, &config);
-                }
             }
         }
         
@@ -294,12 +285,7 @@ impl Cx {
             return self.os.destroy_native_view(id);
         }
         
-        #[cfg(target_os = "android")]
-        {
-            return self.os.destroy_native_view(id);
-        }
-        
-        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos", target_os = "android")))]
+        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos")))]
         {
             false
         }
@@ -317,10 +303,6 @@ impl Cx {
                     return self.os.set_native_view_frame(id, frame);
                 }
                 
-                #[cfg(target_os = "android")]
-                {
-                    return self.os.set_native_view_frame(id, frame);
-                }
             }
         }
         
@@ -342,12 +324,7 @@ impl Cx {
             return self.os.poll_native_view_events();
         }
         
-        #[cfg(target_os = "android")]
-        {
-            return self.os.poll_native_view_events();
-        }
-        
-        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos", target_os = "android")))]
+        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos")))]
         {
             if let Some(views) = self.get_native_views_mut() {
                 std::mem::take(&mut views.pending_events)
@@ -364,12 +341,7 @@ impl Cx {
             return self.os.send_touch_to_native_view(event);
         }
         
-        #[cfg(target_os = "android")]
-        {
-            return self.os.send_touch_to_native_view(event);
-        }
-        
-        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos", target_os = "android")))]
+        #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "tvos")))]
         {
             let _ = event;
             false
