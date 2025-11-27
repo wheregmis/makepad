@@ -15,30 +15,13 @@ pub use crate::os::apple::apple_native_view::AppleNativeViewImpl;
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, FromLiveId)]
 pub struct NativeViewId(pub LiveId);
 
-/// Types of native views that can be embedded
-#[derive(Clone, Debug)]
-pub enum NativeViewType {
-    /// A native button
-    Button { label: String },
-    /// A native text field
-    TextField { placeholder: String, text: String },
-    /// A native label
-    Label { text: String },
-    /// A native switch/toggle
-    Switch { on: bool },
-    /// A native slider
-    Slider { value: f64, min: f64, max: f64 },
-    /// A native progress indicator
-    ProgressIndicator { progress: f64 },
-    /// A custom native view (platform-specific identifier)
-    Custom { type_name: String, properties: HashMap<String, String> },
-}
-
 /// Configuration for creating a native view
 #[derive(Clone, Debug)]
 pub struct NativeViewConfig {
-    /// The type of native view to create
-    pub view_type: NativeViewType,
+    /// Platform-specific view identifier
+    pub view_type: String,
+    /// Arbitrary properties for the native component
+    pub properties: HashMap<String, String>,
     /// Initial frame/bounds in logical pixels
     pub frame: Rect,
     /// Background color (if supported)
@@ -52,8 +35,12 @@ pub struct NativeViewConfig {
 impl Default for NativeViewConfig {
     fn default() -> Self {
         Self {
-            view_type: NativeViewType::Label { text: String::new() },
-            frame: Rect::default(),
+            view_type: String::new(),
+            properties: HashMap::new(),
+            frame: Rect {
+                pos: dvec2(0.0, 0.0),
+                size: dvec2(200.0, 100.0),
+            },
             background_color: None,
             interactive: true,
             texture_scale: 1.0,

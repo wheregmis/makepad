@@ -169,7 +169,6 @@ pub use {
         video::*,
         native_view::{
             NativeViewId,
-            NativeViewType,
             NativeViewConfig,
             NativeViewEvent,
             NativeViewTouchEvent,
