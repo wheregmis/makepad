@@ -49,6 +49,7 @@ use {
             CxGeometryPool,
             GeometryFingerprint
         },
+        native_view::CxNativeViews,
     }
 };
 
@@ -143,6 +144,9 @@ pub struct Cx {
     /// This is primarily used when adaptive views change their active variant,
     /// as the widget hierarchy changes require parent views to rebuild their widget queries.
     pub widget_query_invalidation_event: Option<u64>,
+    
+    /// Native view management for embedding platform UI components
+    pub native_views: CxNativeViews,
 }
 
 #[derive(Clone)]
@@ -361,6 +365,8 @@ impl Cx {
             display_context: Default::default(),
 
             widget_query_invalidation_event: None,
+            
+            native_views: Default::default(),
             
             script_vm: Some(script_vm),
             script_data: Default::default(),

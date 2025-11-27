@@ -8,6 +8,7 @@ use {
     crate::{
         makepad_objc_sys::objc_block,
         makepad_live_id::*,
+        makepad_math::*,
         os::{
             cx_native::EventFlow,
             apple::{
@@ -15,7 +16,8 @@ use {
                 apple_util::*,
                 ios::{
                     ios_event::IosEvent,
-                    ios_app::{IosApp, init_ios_app_global,with_ios_app}
+                    ios_app::{IosApp, init_ios_app_global,with_ios_app},
+                    ios_native_view,
                 },
                 url_session::{AppleHttpRequests},
             },
@@ -33,6 +35,13 @@ use {
         },
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         cx::{Cx, OsType, IosParams},
+        native_view::{
+            NativeViewId,
+            NativeViewConfig,
+            NativeViewEvent,
+            NativeViewTouchEvent,
+            NativeViewHandle,
+        },
     }
 };
 
@@ -480,6 +489,7 @@ pub struct CxOs {
     pub (crate) network_response: NetworkResponseChannel,
     pub (crate) http_requests: AppleHttpRequests,
     pub (crate) permission_response: PermissionResultChannel,
+    pub (crate) native_view_manager: ios_native_view::IosNativeViewManager,
 }
 
 pub struct PermissionResultChannel {
@@ -494,5 +504,36 @@ impl Default for PermissionResultChannel {
             sender,
             receiver
         }
+    }
+}
+
+// Native view API implementation for iOS
+impl CxOs {
+    pub fn create_native_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        self.native_view_manager.create_view(id, config)
+    }
+    
+    pub fn update_native_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        self.native_view_manager.update_view(id, config)
+    }
+    
+    pub fn destroy_native_view(&mut self, id: NativeViewId) -> bool {
+        self.native_view_manager.destroy_view(id)
+    }
+    
+    pub fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
+        self.native_view_manager.set_frame(id, frame)
+    }
+    
+    pub fn send_touch_to_native_view(&mut self, event: NativeViewTouchEvent) -> bool {
+        self.native_view_manager.send_touch(event)
+    }
+    
+    pub fn get_native_view_texture(&self, id: NativeViewId) -> Option<&NativeViewHandle> {
+        self.native_view_manager.get_texture(id)
+    }
+    
+    pub fn poll_native_view_events(&mut self) -> Vec<NativeViewEvent> {
+        self.native_view_manager.poll_events()
     }
 }

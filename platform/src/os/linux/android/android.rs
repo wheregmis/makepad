@@ -17,6 +17,7 @@ use {
         android_media::CxAndroidMedia,
         android_jni::{self, *},
         android_keycodes::android_to_makepad_key_code,
+        android_native_view,
         super::egl_sys::{self, LibEgl},
         super::libc_sys,
         ndk_sys,
@@ -69,6 +70,13 @@ use {
         os::cx_native::EventFlow,
         pass::{PassClearColor, PassClearDepth, PassId},
         web_socket::WebSocketMessage,
+        native_view::{
+            NativeViewId,
+            NativeViewConfig,
+            NativeViewEvent,
+            NativeViewTouchEvent,
+            NativeViewHandle,
+        },
     },
     makepad_http::websocket::ServerWebSocket as WebSocketImpl,
     makepad_http::websocket::ServerWebSocketMessage as WebSocketMessageImpl
@@ -1209,8 +1217,40 @@ impl Default for CxOs {
             activity_thread_id: None,
             render_thread_id: None,
             ignore_destroy: false,
-            in_xr_mode: false
+            in_xr_mode: false,
+            native_view_manager: android_native_view::AndroidNativeViewManager::new(),
         }
+    }
+}
+
+// Native view API implementation for Android
+impl CxOs {
+    pub fn create_native_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        self.native_view_manager.create_view(id, config)
+    }
+    
+    pub fn update_native_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool {
+        self.native_view_manager.update_view(id, config)
+    }
+    
+    pub fn destroy_native_view(&mut self, id: NativeViewId) -> bool {
+        self.native_view_manager.destroy_view(id)
+    }
+    
+    pub fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
+        self.native_view_manager.set_frame(id, frame)
+    }
+    
+    pub fn send_touch_to_native_view(&mut self, event: NativeViewTouchEvent) -> bool {
+        self.native_view_manager.send_touch(event)
+    }
+    
+    pub fn get_native_view_texture(&self, id: NativeViewId) -> Option<&NativeViewHandle> {
+        self.native_view_manager.get_texture(id)
+    }
+    
+    pub fn poll_native_view_events(&mut self) -> Vec<NativeViewEvent> {
+        self.native_view_manager.poll_events()
     }
 }
 
@@ -1244,7 +1284,8 @@ pub struct CxOs {
     pub (crate) activity_thread_id: Option<u64>,
     pub (crate) render_thread_id: Option<u64>,
     pub (crate) ignore_destroy: bool,
-    pub (crate) in_xr_mode: bool
+    pub (crate) in_xr_mode: bool,
+    pub (crate) native_view_manager: android_native_view::AndroidNativeViewManager,
 }
 
 impl CxOs{

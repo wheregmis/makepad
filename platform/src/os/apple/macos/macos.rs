@@ -479,6 +479,11 @@ impl Cx {
                         window.is_fullscreen
                     );
                     window.window_geom = metal_window.window_geom.clone();
+                    // Set content view for native view manager with DPI factor
+                    self.os.native_view_manager.set_content_view(
+                        metal_window.cocoa_window.view,
+                        metal_window.window_geom.dpi_factor
+                    );
                     metal_windows.push(metal_window);
                     window.is_created = true;
                 },
@@ -778,4 +783,36 @@ pub struct CxOs {
     pub (crate) start_time: Option<Instant>,
     pub (crate) http_requests: AppleHttpRequests,
     pub metal_device: Option<ObjcId>,
+    pub (crate) native_view_manager: super::macos_native_view::MacosNativeViewManager,
+}
+
+// Native view API for macOS
+impl CxOs {
+    pub fn create_native_view(&mut self, id: crate::native_view::NativeViewId, config: &crate::native_view::NativeViewConfig) -> bool {
+        self.native_view_manager.create_view(id, config)
+    }
+    
+    pub fn update_native_view(&mut self, id: crate::native_view::NativeViewId, config: &crate::native_view::NativeViewConfig) -> bool {
+        self.native_view_manager.update_view(id, config)
+    }
+    
+    pub fn destroy_native_view(&mut self, id: crate::native_view::NativeViewId) -> bool {
+        self.native_view_manager.destroy_view(id)
+    }
+    
+    pub fn set_native_view_frame(&mut self, id: crate::native_view::NativeViewId, frame: crate::makepad_math::Rect) -> bool {
+        self.native_view_manager.set_frame(id, frame)
+    }
+    
+    pub fn send_touch_to_native_view(&mut self, event: crate::native_view::NativeViewTouchEvent) -> bool {
+        self.native_view_manager.send_touch(event)
+    }
+    
+    pub fn get_native_view_texture(&self, id: crate::native_view::NativeViewId) -> Option<&crate::native_view::NativeViewHandle> {
+        self.native_view_manager.get_texture(id)
+    }
+    
+    pub fn poll_native_view_events(&mut self) -> Vec<crate::native_view::NativeViewEvent> {
+        self.native_view_manager.poll_events()
+    }
 }

@@ -17,6 +17,7 @@ workspace.members = [
     "examples/slides",
     "examples/xr_net",
     "examples/comfyui",
+    "examples/native_components",
     "libs/script/test",
     "studio",
     "tools/cargo_makepad",
