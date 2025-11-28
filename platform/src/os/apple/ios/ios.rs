@@ -8,6 +8,7 @@ use {
     crate::{
         makepad_objc_sys::objc_block,
         makepad_live_id::*,
+        makepad_math::*,
         os::{
             cx_native::EventFlow,
             apple::{
@@ -15,7 +16,8 @@ use {
                 apple_util::*,
                 ios::{
                     ios_event::IosEvent,
-                    ios_app::{IosApp, init_ios_app_global,with_ios_app}
+                    ios_app::{IosApp, init_ios_app_global,with_ios_app},
+                    ios_native_view,
                 },
                 url_session::{AppleHttpRequests},
             },
@@ -33,6 +35,13 @@ use {
         },
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         cx::{Cx, OsType, IosParams},
+        native_view::{
+            NativeViewId,
+            NativeViewConfig,
+            NativeViewEvent,
+            NativeViewTouchEvent,
+            NativeViewHandle,
+        },
     }
 };
 
@@ -480,6 +489,7 @@ pub struct CxOs {
     pub (crate) network_response: NetworkResponseChannel,
     pub (crate) http_requests: AppleHttpRequests,
     pub (crate) permission_response: PermissionResultChannel,
+    pub (crate) native_view_manager: crate::os::apple::apple_native_view::AppleNativeViewManager,
 }
 
 pub struct PermissionResultChannel {
@@ -495,4 +505,9 @@ impl Default for PermissionResultChannel {
             receiver
         }
     }
+}
+
+// Native view API implementation for iOS
+impl CxOs {
+    crate::impl_apple_native_view_api!();
 }

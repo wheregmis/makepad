@@ -22,6 +22,7 @@ pub mod thread;
 pub mod audio;
 pub mod midi;
 pub mod video;
+pub mod native_view;
 pub mod scope;
 pub mod script;
 
@@ -166,6 +167,14 @@ pub use {
         audio::*,
         thread::*,
         video::*,
+        native_view::{
+            NativeViewId,
+            NativeViewConfig,
+            NativeViewEvent,
+            NativeViewTouchEvent,
+            NativeViewTouchPhase,
+            NativeViewHandle,
+        },
         web_socket::{WebSocket,WebSocketMessage},
         event::{
             VirtualKeyboardEvent,

@@ -24,6 +24,7 @@ pub mod audio_unit;
 pub mod core_midi;
 pub mod apple_media;
 pub mod av_capture;
+pub mod apple_native_view;
 pub(crate) use self::metal::*;
 #[cfg(target_os = "macos")]
 pub(crate) use self::macos::*;

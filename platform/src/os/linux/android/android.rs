@@ -69,6 +69,13 @@ use {
         os::cx_native::EventFlow,
         pass::{PassClearColor, PassClearDepth, PassId},
         web_socket::WebSocketMessage,
+        native_view::{
+            NativeViewId,
+            NativeViewConfig,
+            NativeViewEvent,
+            NativeViewTouchEvent,
+            NativeViewHandle,
+        },
     },
     makepad_http::websocket::ServerWebSocket as WebSocketImpl,
     makepad_http::websocket::ServerWebSocketMessage as WebSocketMessageImpl
@@ -1209,10 +1216,11 @@ impl Default for CxOs {
             activity_thread_id: None,
             render_thread_id: None,
             ignore_destroy: false,
-            in_xr_mode: false
+            in_xr_mode: false,
         }
     }
 }
+
 
 pub struct CxAndroidDisplay {
     pub libegl: LibEgl,
@@ -1244,7 +1252,7 @@ pub struct CxOs {
     pub (crate) activity_thread_id: Option<u64>,
     pub (crate) render_thread_id: Option<u64>,
     pub (crate) ignore_destroy: bool,
-    pub (crate) in_xr_mode: bool
+    pub (crate) in_xr_mode: bool,
 }
 
 impl CxOs{

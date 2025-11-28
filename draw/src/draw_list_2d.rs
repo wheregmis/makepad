@@ -383,12 +383,17 @@ impl<'a,'b> Cx2d<'a,'b> {
     pub fn add_aligned_rect_area(&mut self, area: &mut Area, rect: Rect) {
         let draw_list_id = *self.draw_list_stack.last().unwrap();
         let draw_list = &mut self.cx.draw_lists[draw_list_id];
-        // ok so we have to add
+        // Seed the draw_clip immediately from the current turtle clip so consumers
+        // (like native views) can query a sensible clipped rect before the align pass
+        // later overwrites it with the final value.
+        let draw_clip = if let Some((clip0, clip1)) = self.turtle_clips.last() {
+            (*clip0, *clip1)
+        } else {
+            Default::default()
+        };
+
         let rect_id = draw_list.rect_areas.len();
-        draw_list.rect_areas.push(CxRectArea {
-            rect,
-            draw_clip:Default::default(),
-        });
+        draw_list.rect_areas.push(CxRectArea { rect, draw_clip });
         
         let new_area = Area::Rect(RectArea {
             draw_list_id,
