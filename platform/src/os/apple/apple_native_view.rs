@@ -22,7 +22,7 @@ pub trait AppleNativeViewImpl: Send + Sync {
     fn create_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool;
     fn update_view(&mut self, id: NativeViewId, config: &NativeViewConfig) -> bool;
     fn destroy_view(&mut self, id: NativeViewId) -> bool;
-    fn set_frame(&mut self, id: NativeViewId, frame: Rect) -> bool;
+    fn set_frame(&mut self, id: NativeViewId, frame: Rect, clip: Rect) -> bool;
     fn send_touch(&mut self, event: NativeViewTouchEvent) -> bool;
     fn get_texture(&self, id: NativeViewId) -> Option<&NativeViewHandle>;
     fn poll_events(&mut self) -> Vec<NativeViewEvent>;
@@ -98,9 +98,9 @@ impl AppleNativeViewManager {
         }
     }
     
-    pub fn set_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
+    pub fn set_frame(&mut self, id: NativeViewId, frame: Rect, clip: Rect) -> bool {
         if let Some(impl_) = &mut self.impl_ {
-            impl_.set_frame(id, frame)
+            impl_.set_frame(id, frame, clip)
         } else {
             false
         }
@@ -152,8 +152,8 @@ macro_rules! impl_apple_native_view_api {
             self.native_view_manager.destroy_view(id)
         }
         
-        pub fn set_native_view_frame(&mut self, id: crate::native_view::NativeViewId, frame: crate::makepad_math::Rect) -> bool {
-            self.native_view_manager.set_frame(id, frame)
+        pub fn set_native_view_frame(&mut self, id: crate::native_view::NativeViewId, frame: crate::makepad_math::Rect, clip: crate::makepad_math::Rect) -> bool {
+            self.native_view_manager.set_frame(id, frame, clip)
         }
         
         pub fn send_touch_to_native_view(&mut self, event: crate::native_view::NativeViewTouchEvent) -> bool {

@@ -95,7 +95,7 @@ pub trait CxNativeViewApi {
     fn destroy_native_view(&mut self, id: NativeViewId) -> bool;
     
     /// Update the frame/position of a native view
-    fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect) -> bool;
+    fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect, clip: Rect) -> bool;
     
     /// Forward a touch event to a native view
     fn send_touch_to_native_view(&mut self, event: NativeViewTouchEvent) -> bool;
@@ -264,7 +264,7 @@ impl Cx {
     }
     
     /// Set the frame of a native view
-    pub fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect) -> bool {
+    pub fn set_native_view_frame(&mut self, id: NativeViewId, frame: Rect, clip: Rect) -> bool {
         if let Some(views) = self.get_native_views_mut() {
             if let Some(state) = views.views.get_mut(&id) {
                 state.config.frame = frame;
@@ -272,7 +272,7 @@ impl Cx {
                 
                 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
                 {
-                    return self.os.set_native_view_frame(id, frame);
+                    return self.os.set_native_view_frame(id, frame, clip);
                 }
                 
             }
@@ -305,6 +305,32 @@ impl Cx {
             }
         }
     }
+
+    /// Drain only the events that belong to a specific native view, keeping the rest queued.
+    /// This prevents one widget from consuming all events for every other native view.
+    pub fn drain_native_view_events_for(&mut self, id: NativeViewId) -> Vec<NativeViewEvent> {
+        // Collect freshly polled events first to avoid overlapping mutable borrows of `self`.
+        let mut polled_events = Vec::new();
+        #[cfg(any(target_os = "ios", target_os = "macos", target_os = "tvos"))]
+        {
+            polled_events = self.os.poll_native_view_events();
+        }
+        // On unsupported platforms we only have queued events.
+
+        let views = self.get_or_create_native_views();
+        views.pending_events.append(&mut polled_events);
+
+        let mut drained = Vec::new();
+        views.pending_events.retain(|event| {
+            if event.id == id {
+                drained.push(event.clone());
+                false
+            } else {
+                true
+            }
+        });
+        drained
+    }
     
     /// Forward touch event to native view
     pub fn send_touch_to_native_view(&mut self, event: NativeViewTouchEvent) -> bool {
@@ -320,4 +346,3 @@ impl Cx {
         }
     }
 }
-

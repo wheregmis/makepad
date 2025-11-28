@@ -56,11 +56,29 @@ impl MetalWindow {
             let () = msg_send![ca_layer, setDelegate: cocoa_window.view];
             let () = msg_send![ca_layer, setBackgroundColor: CGColorCreateGenericRGB(0.0, 0.0, 0.0, 1.0)];
             
-            let view = cocoa_window.view;
-            let () = msg_send![view, setWantsBestResolutionOpenGLSurface: YES];
-            let () = msg_send![view, setWantsLayer: YES];
-            let () = msg_send![view, setLayerContentsPlacement: 11];
-            let () = msg_send![view, setLayer: ca_layer];
+            let root_view = cocoa_window.view;
+            let () = msg_send![root_view, setWantsLayer: YES];
+            
+            // Create a subview to host the Metal layer
+            // This allows the root view to remain a normal layer-backed view that can host other subviews (native components)
+            let metal_view: ObjcId = msg_send![class!(NSView), alloc];
+            let metal_view: ObjcId = msg_send![metal_view, init];
+            
+            let () = msg_send![metal_view, setWantsBestResolutionOpenGLSurface: YES];
+            let () = msg_send![metal_view, setWantsLayer: YES];
+            let () = msg_send![metal_view, setLayerContentsPlacement: 11];
+            let () = msg_send![metal_view, setLayer: ca_layer];
+            
+            // Ensure metal view resizes with root view
+            let () = msg_send![metal_view, setAutoresizingMask: (1 << 4) | (1 << 1)]; // Width | Height sizable
+            
+            // Set initial frame
+            let bounds: NSRect = msg_send![root_view, bounds];
+            let () = msg_send![metal_view, setFrame: bounds];
+            
+            // Add metal view to root, positioned below everything else (at the back)
+            // NSWindowBelow = -1
+            let () = msg_send![root_view, addSubview: metal_view positioned: -1isize relativeTo: nil];
         }
         
         MetalWindow {
