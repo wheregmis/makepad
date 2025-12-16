@@ -1,0 +1,15 @@
+[package]
+name = "makepad-router"
+version = "1.0.0"
+authors = ["Makepad <info@makepad.nl>"]
+edition = "2021"
+description = "Makepad router for navigation and page management"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/makepad/makepad/"
+repository = "https://github.com/makepad/makepad/"
+
+[dependencies]
+makepad-live-id = { path = "../live_id", version = "1.0.0" }
+makepad-micro-serde = { path = "../micro_serde", version = "1.0.0" }
+makepad-draw = { path = "../../draw", version = "1.0.0" }
+makepad-widgets = { path = "../../widgets", version = "1.0.0" }

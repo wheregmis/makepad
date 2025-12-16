@@ -27,10 +27,12 @@ workspace.members = [
 workspace.exclude = [
     "libs/stitch",
     "libs/wasm_bridge/test",
+    "libs/router",
     "tools/windows_strip",
     "tools/web_server",
     "tools/file_router",
     "tools/wasm_strip",
+    "examples/router_example",
 ]
 
 workspace.resolver = "2"

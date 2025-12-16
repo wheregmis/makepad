@@ -1,0 +1,10 @@
+[package]
+name = "router_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+makepad-widgets = { path = "../../widgets" }
+makepad-router = { path = "../../libs/router" }
+
+[features]
