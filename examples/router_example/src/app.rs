@@ -153,7 +153,6 @@ live_design! {
                 // Router content area
                 router = <RouterWidget> {
                     width: Fill, height: Fill
-                    default_route: home
 
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
@@ -168,6 +167,8 @@ live_design! {
 pub struct App {
     #[live]
     ui: WidgetRef,
+    #[rust]
+    router_initialized: bool,
 }
 
 impl LiveRegister for App {
@@ -179,72 +180,70 @@ impl LiveRegister for App {
 
 impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
-        // Navigation bar buttons
+        let router = self.ui.router_widget(ids!(router));
+
+        // Initialize with home page on first load only
+        if !self.router_initialized {
+            log!("🚀 Initializing router with home page");
+            router.navigate(cx, live_id!(home));
+            self.router_initialized = true;
+        }
+
+        // Navigation bar buttons (outside router - use raw actions)
         if self.ui.button(ids!(nav_bar.home_btn)).clicked(&actions) {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(home));
+            log!("🏠 Nav: Home clicked");
+            router.navigate(cx, live_id!(home));
         }
         if self.ui.button(ids!(nav_bar.settings_btn)).clicked(&actions) {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(settings));
+            log!("⚙️ Nav: Settings clicked");
+            router.navigate(cx, live_id!(settings));
         }
         if self.ui.button(ids!(nav_bar.about_btn)).clicked(&actions) {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(about));
+            log!("ℹ️ Nav: About clicked");
+            router.navigate(cx, live_id!(about));
         }
 
         // Back button
         if self.ui.button(ids!(nav_bar.back_btn)).clicked(&actions) {
-            self.ui.router_widget(ids!(router)).back(cx);
+            log!("⬅️ Nav: Back clicked");
+            router.back(cx);
         }
 
-        // Home page buttons
+        // Routed buttons now generate actions even when inactive
         if self
             .ui
             .button(ids!(router.home.settings_btn))
             .clicked(&actions)
         {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(settings));
+            log!("🏠→⚙️ Home: Settings clicked");
+            router.navigate(cx, live_id!(settings));
         }
         if self
             .ui
             .button(ids!(router.home.about_btn))
             .clicked(&actions)
         {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(about));
+            log!("🏠→ℹ️ Home: About clicked");
+            router.navigate(cx, live_id!(about));
         }
-
-        // Settings page button
         if self
             .ui
             .button(ids!(router.settings.home_btn))
             .clicked(&actions)
         {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(home));
+            log!("⚙️→🏠 Settings: Home clicked");
+            router.navigate(cx, live_id!(home));
         }
-
-        // About page button
         if self
             .ui
             .button(ids!(router.about.home_btn))
             .clicked(&actions)
         {
-            self.ui
-                .router_widget(ids!(router))
-                .navigate(cx, live_id!(home));
+            log!("ℹ️→🏠 About: Home clicked");
+            router.navigate(cx, live_id!(home));
         }
 
         // Update back button state
-        let router = self.ui.router_widget(ids!(router));
         self.ui
             .button(ids!(nav_bar.back_btn))
             .set_enabled(cx, router.can_go_back());

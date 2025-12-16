@@ -64,11 +64,16 @@ impl LiveHook for RouterWidget {
                     }
                 }
 
-                if let Some(ptr) = self.route_templates.get(&self.active_route) {
-                    self.route_widgets
-                        .get_or_insert(cx, self.active_route, |cx| {
-                            WidgetRef::new_from_ptr(cx, Some(*ptr))
-                        });
+                // Create widgets for ALL routes, not just the active one
+                // This ensures buttons on inactive pages can still generate events
+                for (route_id, _ptr) in self.route_templates.iter() {
+                    if !self.route_widgets.contains_key(route_id) {
+                        if let Some(ptr) = self.route_templates.get(route_id) {
+                            self.route_widgets.get_or_insert(cx, *route_id, |cx| {
+                                WidgetRef::new_from_ptr(cx, Some(*ptr))
+                            });
+                        }
+                    }
                 }
             }
             _ => (),
@@ -147,6 +152,10 @@ impl RouterWidget {
     pub fn can_go_back(&self) -> bool {
         self.router.can_go_back()
     }
+
+    pub fn current_route_id(&self) -> Option<LiveId> {
+        self.router.current_route_id()
+    }
 }
 
 impl WidgetNode for RouterWidget {
@@ -191,9 +200,20 @@ impl Widget for RouterWidget {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
         let uid = self.widget_uid();
 
-        if let Some(widget) = self.route_widgets.get_mut(&self.active_route) {
+        // Handle events for ALL route widgets, not just the active one
+        // This ensures buttons on inactive pages still generate actions
+        for (route_id, widget) in self.route_widgets.iter_mut() {
             let widget_uid = widget.widget_uid();
-            cx.group_widget_actions(uid, widget_uid, |cx| widget.handle_event(cx, event, scope));
+            // Only group actions for the active route so they're properly scoped
+            if *route_id == self.active_route {
+                cx.group_widget_actions(uid, widget_uid, |cx| {
+                    widget.handle_event(cx, event, scope)
+                });
+            } else {
+                // For inactive routes, still handle events but don't group them
+                // This allows them to generate actions that can be captured
+                widget.handle_event(cx, event, scope);
+            }
         }
     }
 
@@ -231,6 +251,14 @@ impl RouterWidgetRef {
             inner.can_go_back()
         } else {
             false
+        }
+    }
+
+    pub fn current_route_id(&self) -> Option<LiveId> {
+        if let Some(inner) = self.borrow() {
+            inner.current_route_id()
+        } else {
+            None
         }
     }
 }
