@@ -83,11 +83,6 @@ impl RouteRegistry {
         self.by_id.contains_key(&route_id)
     }
 
-    /// Get route by ID
-    pub fn get_by_id(&self, route_id: LiveId) -> Option<&RouteEntry> {
-        self.by_id.get(&route_id)
-    }
-
     /// Get pattern for a route ID
     pub fn get_pattern(&self, route_id: LiveId) -> Option<&RoutePattern> {
         self.by_pattern.iter()

@@ -578,13 +578,19 @@ impl WidgetNode for View {
     }
 
     fn find_widgets(&self, path: &[LiveId], cached: WidgetCache, results: &mut WidgetSet) {
+        if path.is_empty() {
+            if let WidgetCache::Clear = cached {
+                self.find_cache.borrow_mut().clear();
+                for (_, child) in &self.children {
+                    child.find_widgets(path, WidgetCache::Clear, results);
+                }
+            }
+            return;
+        }
         match cached {
             WidgetCache::Yes | WidgetCache::Clear => {
                 if let WidgetCache::Clear = cached {
                     self.find_cache.borrow_mut().clear();
-                    if path.len() == 0{
-                        return
-                    }
                 }
                 let mut hash = 0u64;
                 for i in 0..path.len() {

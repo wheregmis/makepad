@@ -257,7 +257,7 @@ impl RouterWidget {
         
         for route_id in route_ids_to_check {
             // Check if path starts with this route's pattern
-            if let Some(pattern) = self.route_patterns.get(&route_id) {
+            if self.route_patterns.contains_key(&route_id) {
                 // Check if path matches the pattern or starts with it
                 if let Some(route) = self.route_registry.resolve_path(path) {
                     if route.id == route_id {
@@ -355,10 +355,6 @@ impl RouterWidget {
     /// Note: Full auto-detection requires knowing field paths, so this is a best-effort approach
     /// Users can still manually register child routers if auto-detection doesn't work
     fn detect_child_routers(&mut self, _cx: &mut Cx) {
-        use std::any::TypeId;
-        
-        let router_widget_type_id = TypeId::of::<RouterWidget>();
-        
         // Scan each route widget for nested RouterWidget instances
         for (route_id, route_widget) in self.route_widgets.iter() {
             // Skip if already registered
@@ -603,9 +599,9 @@ impl RouterWidgetRef {
     /// The formatter function is called with the parameter value to generate the label text
     pub fn bind_param_to_label<F>(
         &self,
-        cx: &mut Cx,
+        _cx: &mut Cx,
         param_name: &str,
-        label_id: LiveId,
+        _label_id: LiveId,
         formatter: F,
     ) -> bool
     where
@@ -643,8 +639,8 @@ impl RouterWidgetRef {
     /// This is a convenience method that checks if the button was clicked and navigates
     pub fn navigate_on_click(
         &self,
-        cx: &mut Cx,
-        actions: &Actions,
+        _cx: &mut Cx,
+        _actions: &Actions,
         button_id: LiveId,
         target_route: LiveId,
     ) -> bool {
