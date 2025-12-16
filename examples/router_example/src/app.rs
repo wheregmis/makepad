@@ -207,8 +207,14 @@ live_design! {
         // Nested router for admin sub-pages
         admin_router = <RouterWidget> {
             width: Fill, height: Fill
-            admin_users = <AdminUsersPage> {}
-            admin_settings = <AdminSettingsPage> {}
+            default_route: admin_users
+            not_found_route: admin_users
+            admin_users = <AdminUsersPage> {
+                route_pattern: "/dashboard"
+            }
+            admin_settings = <AdminSettingsPage> {
+                route_pattern: "/settings"
+            }
         }
 
         home_btn = <Button> {
@@ -313,6 +319,10 @@ live_design! {
                         text: "About"
                     }
 
+                    broken_link_btn = <Button> {
+                        text: "Broken Link (404)"
+                    }
+
                     <View> { width: Fill, height: Fit }
 
                     back_btn = <Button> {
@@ -324,6 +334,7 @@ live_design! {
                 router = <RouterWidget> {
                     width: Fill, height: Fill
                     default_route: home
+                    not_found_route: not_found
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
                     about = <AboutPage> {}
@@ -333,9 +344,7 @@ live_design! {
                     admin = <AdminDashboard> {
                         route_pattern: "/admin/*"
                     }
-                    not_found = <NotFoundPage> {
-                        route_pattern: "/*"
-                    }
+                    not_found = <NotFoundPage> {}
                 }
             }
         }
@@ -383,6 +392,10 @@ impl MatchEvent for App {
             log!("ℹ️ Nav: About clicked");
             router.navigate(cx, live_id!(about));
         }
+        if self.ui.button(ids!(nav_bar.broken_link_btn)).clicked(&actions) {
+            log!("🚫 Nav: Broken link clicked");
+            router.navigate_by_path(cx, "/this/route/does/not/exist");
+        }
 
         // Dynamic segment navigation example
         if self.ui.button(ids!(router.home.user_btn)).clicked(&actions) {
@@ -397,14 +410,12 @@ impl MatchEvent for App {
             .clicked(&actions)
         {
             log!("🔐 Navigating to admin (nested router)");
-            // Replace, so the navbar back button cannot return to Home from Admin.
-            router.replace(cx, live_id!(admin));
-        }
-
-        // Wildcard route example - navigate to non-existent route
-        if self.ui.button(ids!(nav_bar.settings_btn)).clicked(&actions) && false {
-            // This would trigger the wildcard route
-            router.navigate_by_path(cx, "/nonexistent/route");
+            // Demonstrate nested routing: `/admin/*` activates the Admin route and delegates the tail
+            // (e.g. `/dashboard`) into `admin_router` based on its own route patterns.
+            //
+            // We clear history afterwards so the navbar back button cannot return to Home from Admin.
+            router.navigate_by_path(cx, "/admin/dashboard");
+            router.clear_history(cx);
         }
 
         // Admin nested router navigation
@@ -419,12 +430,6 @@ impl MatchEvent for App {
                         log!("Admin route changed: {:?} -> {:?}", from, to);
                     }
                 }
-            }
-
-            // Initialize nested router on first access (auto-detection should handle registration)
-            // But we still need to set the initial route
-            if admin_router.current_route_id().is_none() {
-                admin_router.replace(cx, live_id!(admin_users));
             }
 
             if self
@@ -522,6 +527,10 @@ impl MatchEvent for App {
         {
             log!("👤→🏠 User Profile: Home clicked");
             router.navigate(cx, live_id!(home));
+        }
+        if self.ui.button(ids!(router.not_found.home_btn)).clicked(&actions) {
+            log!("🚫→🏠 404: Back to Home clicked");
+            router.replace(cx, live_id!(home));
         }
 
         // Update back button state

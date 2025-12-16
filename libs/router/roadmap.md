@@ -6,10 +6,10 @@
 - [x] Emit `RouterAction` into `Actions` on route changes (no callbacks required).
 
 ### Phase 2: Nested Routing (Real)
-- [ ] Delegate remainder paths to child routers (e.g. `/admin/*` passes the tail into `admin_router`) and support optional “base path” composition.
-- [ ] Add route “not found” handling at each router level (configurable fallback route id).
+- [x] Delegate remainder paths to child routers (e.g. `/admin/*` passes the tail into `admin_router`) and support optional “base path” composition.
+- [x] Add route “not found” handling at each router level (configurable fallback route id).
 
-### Phase 3: Transitions / Animations
+### Phase 3: Transitions / Animations / View Transitions (which opens the door for hero like element in flutter)
 - [ ] Implement animated transitions inside `RouterWidget` (keep old+new alive during transition, then drop old).
 - [ ] Built-in presets: `None`, `Fade`, `SlideLeft/Right`, `Scale`, `SharedAxis` with push/pop direction.
 - [ ] Per-route and per-navigation overrides (e.g. push slides, replace fades).

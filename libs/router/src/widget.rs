@@ -1,4 +1,4 @@
-use crate::{route::Route, router::{Router, RouteRegistry, RouterAction}};
+use crate::{route::{Route, RouteParams, RoutePattern}, router::{Router, RouteRegistry, RouterAction}};
 use makepad_widgets::*;
 
 live_design! {
@@ -21,6 +21,8 @@ pub struct RouterWidget {
     active_route: LiveId,
     #[live]
     default_route: LiveId,
+    #[live]
+    not_found_route: LiveId,
     #[live(false)]
     persist_state: bool,
     #[rust]
@@ -175,6 +177,39 @@ impl LiveHook for RouterWidget {
 }
 
 impl RouterWidget {
+    fn resolve_nested_prefix(&self, path: &str) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
+        let route_ids_to_check: Vec<LiveId> = self.child_routers.keys().cloned().collect();
+        let mut best: Option<(LiveId, RouteParams, RoutePattern, String, usize)> = None;
+
+        for route_id in route_ids_to_check {
+            let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) else { continue };
+            let Some((params, tail)) = pattern_obj.matches_prefix_with_tail(path) else { continue };
+            let priority = pattern_obj.priority();
+            match &best {
+                Some((_id, _p, _pat, _tail, best_prio)) if *best_prio <= priority => {}
+                _ => {
+                    best = Some((route_id, params, pattern_obj.clone(), tail, priority));
+                }
+            }
+        }
+
+        best.map(|(id, params, pattern, tail, _prio)| (id, params, pattern, tail))
+    }
+
+    fn delegate_tail_to_child(&mut self, cx: &mut Cx, parent_route_id: LiveId, tail: &str) -> bool {
+        if tail.is_empty() {
+            return true;
+        }
+        self.detect_child_routers(cx);
+        let child_router = self.child_routers.get(&parent_route_id).cloned();
+        if let Some(child_router) = child_router {
+            if let Some(mut child) = child_router.borrow_mut() {
+                return child.navigate_by_path(cx, tail);
+            }
+        }
+        false
+    }
+
     fn queue_route_actions(
         &mut self,
         primary_action: Option<RouterAction>,
@@ -464,7 +499,7 @@ impl RouterWidget {
 
     /// Navigate by path string
     pub fn navigate_by_path(&mut self, cx: &mut Cx, path: &str) -> bool {
-        // First try to resolve in this router
+        // 1) Full match in this router.
         if let Some(route) = self.router.route_registry.resolve_path(path) {
             if self.route_templates.contains_key(&route.id) {
                 let old_route = self.router.current_route().cloned();
@@ -473,7 +508,6 @@ impl RouterWidget {
 
                 self.ensure_route_widget(cx, route.id);
 
-                // Trigger route change callbacks
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), route.clone());
                 }
@@ -483,70 +517,56 @@ impl RouterWidget {
                     &route,
                 );
 
+                // If this route owns a child router, delegate the tail to it.
+                if self.child_routers.contains_key(&route.id) {
+                    if let Some(pattern) = &route.pattern {
+                        if let Some((_params, tail)) = pattern.matches_prefix_with_tail(path) {
+                            let _ = self.delegate_tail_to_child(cx, route.id, &tail);
+                        }
+                    }
+                }
+
                 self.redraw(cx);
                 return true;
             }
         }
 
-        // Try nested routers - check if any child router's parent route matches the beginning of the path
-        let route_ids_to_check: Vec<LiveId> = self.child_routers.keys().cloned().collect();
-        
-        for route_id in route_ids_to_check {
-            // Check if path starts with this route's pattern
-            if self.route_patterns.contains_key(&route_id) {
-                // Check if path matches the pattern or starts with it
-                if let Some(route) = self.router.route_registry.resolve_path(path) {
-                    if route.id == route_id {
-                        // Path matches parent route, activate it
-                        let old_route = self.router.current_route().cloned();
-                        self.router.navigate(route.clone());
-                        self.active_route = route.id;
-                        
-                        self.ensure_route_widget(cx, route_id);
-                        
-                        for callback in &self.route_change_callbacks {
-                            callback(cx, old_route.clone(), route.clone());
-                        }
-                        self.queue_route_actions(
-                            Some(RouterAction::Navigate(route.clone())),
-                            old_route.as_ref().map(|r| r.id),
-                            &route,
-                        );
+        // 2) Prefix match for nested routing: activate a parent route and delegate the tail.
+        if let Some((route_id, params, pattern, tail)) = self.resolve_nested_prefix(path) {
+            if self.route_templates.contains_key(&route_id) {
+                let old_route = self.router.current_route().cloned();
+                let parent_route = Route {
+                    id: route_id,
+                    params,
+                    pattern: Some(pattern),
+                };
+                self.router.navigate(parent_route.clone());
+                self.active_route = route_id;
+                self.ensure_route_widget(cx, route_id);
 
-                        self.redraw(cx);
-                        return true;
-                    }
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), parent_route.clone());
                 }
-                
-                // Try to match pattern and extract remaining path
-                if let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) {
-                    if let Some(params) = pattern_obj.matches(path) {
-                        // Pattern matches, create route and navigate
-                        let route = Route {
-                            id: route_id,
-                            params,
-                            pattern: Some(pattern_obj.clone()),
-                        };
-                        let old_route = self.router.current_route().cloned();
-                        self.router.navigate(route.clone());
-                        self.active_route = route.id;
-                        
-                        self.ensure_route_widget(cx, route_id);
-                        
-                        for callback in &self.route_change_callbacks {
-                            callback(cx, old_route.clone(), route.clone());
-                        }
-                        self.queue_route_actions(
-                            Some(RouterAction::Navigate(route.clone())),
-                            old_route.as_ref().map(|r| r.id),
-                            &route,
-                        );
+                self.queue_route_actions(
+                    Some(RouterAction::Navigate(parent_route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &parent_route,
+                );
 
-                        self.redraw(cx);
-                        return true;
-                    }
-                }
+                let _ = self.delegate_tail_to_child(cx, route_id, &tail);
+                self.redraw(cx);
+                return true;
             }
+        }
+
+        // 3) Not-found fallback.
+        if self.not_found_route.0 != 0 && self.route_templates.contains_key(&self.not_found_route) {
+            // Push not-found so the user can navigate back to the previous page.
+            // If we're already on not-found, don't keep growing history.
+            if self.current_route_id() == Some(self.not_found_route) {
+                return false;
+            }
+            return self.navigate(cx, self.not_found_route);
         }
 
         log!("Router: No route found for path: {}", path);

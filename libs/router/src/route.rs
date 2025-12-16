@@ -145,6 +145,88 @@ impl RoutePattern {
         Some(params)
     }
 
+    /// Match a path prefix against this pattern and return both extracted params and a "tail" path.
+    ///
+    /// This is used for nested routing: if a parent route pattern matches the beginning of a path,
+    /// the remaining part (or captured wildcard part) can be delegated to a child router.
+    ///
+    /// Tail rules:
+    /// - If the pattern ends before the path, the tail is the remaining unmatched segments.
+    /// - If the pattern ends with `*` or `**`, the tail is the segment(s) matched by that wildcard.
+    /// - The returned tail is `""` if there is nothing to delegate, otherwise it starts with `/`.
+    pub fn matches_prefix_with_tail(&self, path: &str) -> Option<(RouteParams, String)> {
+        let path = path.trim();
+        let path = if path.starts_with('/') { &path[1..] } else { path };
+        let path_segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+
+        let mut params = RouteParams::new();
+        let mut pattern_idx = 0usize;
+        let mut path_idx = 0usize;
+        let mut tail_start_at: Option<usize> = None;
+
+        while pattern_idx < self.segments.len() && path_idx < path_segments.len() {
+            match &self.segments[pattern_idx] {
+                RouteSegment::Static(expected) => {
+                    if path_segments[path_idx] != expected {
+                        return None;
+                    }
+                    path_idx += 1;
+                }
+                RouteSegment::Dynamic(param_name) => {
+                    let value = path_segments[path_idx];
+                    let param_key = LiveId::from_str(param_name);
+                    use makepad_live_id::InternLiveId;
+                    let param_value = LiveId::from_str_with_intern(value, InternLiveId::Yes);
+                    params.add(param_key, param_value);
+                    path_idx += 1;
+                }
+                RouteSegment::WildcardSingle => {
+                    // For nested routing we only "capture" a trailing wildcard, otherwise it's just a matcher.
+                    if pattern_idx == self.segments.len().saturating_sub(1) {
+                        tail_start_at = Some(path_idx);
+                    }
+                    path_idx += 1;
+                }
+                RouteSegment::WildcardMulti => {
+                    // Must be last (enforced by parser). Capture the rest (could be empty).
+                    tail_start_at = Some(path_idx);
+                    path_idx = path_segments.len();
+                    pattern_idx += 1;
+                    break;
+                }
+            }
+            pattern_idx += 1;
+        }
+
+        // If we did not consume the whole pattern, only a trailing `**` can match an empty remainder.
+        if pattern_idx < self.segments.len() {
+            if pattern_idx == self.segments.len() - 1
+                && matches!(self.segments[pattern_idx], RouteSegment::WildcardMulti)
+            {
+                tail_start_at = Some(path_idx);
+            } else {
+                return None;
+            }
+        }
+
+        // If the pattern is fully matched but the path has more segments, this is prefix-match tail.
+        if tail_start_at.is_none() && path_idx < path_segments.len() {
+            tail_start_at = Some(path_idx);
+        }
+
+        let tail = if let Some(start) = tail_start_at {
+            if start >= path_segments.len() {
+                String::new()
+            } else {
+                format!("/{}", path_segments[start..].join("/"))
+            }
+        } else {
+            String::new()
+        };
+
+        Some((params, tail))
+    }
+
     /// Get the priority for route matching (lower = higher priority)
     pub fn priority(&self) -> usize {
         let mut priority = 0;
@@ -326,6 +408,28 @@ mod tests {
         assert!(pattern.matches("/admin/users/123").is_some());
         assert!(pattern.matches("/admin/users/123/edit").is_some());
         assert!(pattern.matches("/admin").is_some()); // Should match zero segments too
+    }
+
+    #[test]
+    fn test_pattern_prefix_tail_static() {
+        let pattern = RoutePattern::parse("/admin").unwrap();
+        let (params, tail) = pattern.matches_prefix_with_tail("/admin/dashboard").unwrap();
+        assert_eq!(params.data.len(), 0);
+        assert_eq!(tail, "/dashboard");
+    }
+
+    #[test]
+    fn test_pattern_prefix_tail_wildcard_single() {
+        let pattern = RoutePattern::parse("/admin/*").unwrap();
+        let (_params, tail) = pattern.matches_prefix_with_tail("/admin/dashboard").unwrap();
+        assert_eq!(tail, "/dashboard");
+    }
+
+    #[test]
+    fn test_pattern_prefix_tail_wildcard_multi() {
+        let pattern = RoutePattern::parse("/admin/**").unwrap();
+        let (_params, tail) = pattern.matches_prefix_with_tail("/admin/a/b").unwrap();
+        assert_eq!(tail, "/a/b");
     }
 
     #[test]
