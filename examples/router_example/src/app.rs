@@ -343,6 +343,8 @@ pub struct App {
     router_initialized: bool,
     #[rust]
     admin_router_initialized: bool,
+    #[rust]
+    last_user_id: Option<String>,
 }
 
 impl LiveRegister for App {
@@ -447,7 +449,7 @@ impl MatchEvent for App {
             }
         }
 
-        // Display user ID from dynamic segment
+        // Display user ID from dynamic segment (only update if it changed)
         if router.current_route_id() == Some(live_id!(user_profile)) {
             if let Some(route) = router.current_route() {
                 if let Some(user_id) = route.get_param(LiveId::from_str("id")) {
@@ -455,18 +457,25 @@ impl MatchEvent for App {
                     let user_id_str = user_id.as_string(|id_str| id_str.map(|s| s.to_string()));
 
                     if let Some(id) = user_id_str {
-                        log!("User ID from route: {}", id);
-                        // Update the label with the actual user ID
-                        if let Some(mut label) = self
-                            .ui
-                            .label(ids!(router.user_profile.user_id_label))
-                            .borrow_mut()
-                        {
-                            label.set_text(cx, &format!("User ID: {}", id));
+                        // Only update if the user ID has changed
+                        if self.last_user_id.as_ref() != Some(&id) {
+                            log!("User ID from route: {}", id);
+                            // Update the label with the actual user ID
+                            if let Some(mut label) = self
+                                .ui
+                                .label(ids!(router.user_profile.user_id_label))
+                                .borrow_mut()
+                            {
+                                label.set_text(cx, &format!("User ID: {}", id));
+                            }
+                            self.last_user_id = Some(id);
                         }
                     }
                 }
             }
+        } else {
+            // Clear the last user ID when not on user profile page
+            self.last_user_id = None;
         }
 
         // Back button
