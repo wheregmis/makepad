@@ -445,19 +445,12 @@ impl MatchEvent for App {
 
         // Display user ID from dynamic segment using the new helper method
         if router.current_route_id() == Some(live_id!(user_profile)) {
-            // Use the new get_param_string helper method
             if let Some(user_id) = router.get_param_string("id") {
-                // Only update if the user ID has changed
                 if self.last_user_id.as_ref() != Some(&user_id) {
                     log!("User ID from route: {}", user_id);
-                    // Update the label with the actual user ID
-                    if let Some(mut label) = self
-                        .ui
-                        .label(ids!(router.user_profile.user_id_label))
-                        .borrow_mut()
-                    {
-                        label.set_text(cx, &format!("User ID: {}", user_id));
-                    }
+                    router.bind_param_to_label(cx, "id", live_id!(user_id_label), |id| {
+                        format!("User ID: {}", id)
+                    });
                     self.last_user_id = Some(user_id);
                 }
             }
