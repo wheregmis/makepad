@@ -1,4 +1,4 @@
-use crate::{route::Route, router::Router};
+use crate::{route::Route, router::{Router, RouteRegistry}};
 use makepad_widgets::*;
 
 live_design! {
@@ -29,6 +29,12 @@ pub struct RouterWidget {
     route_templates: ComponentMap<LiveId, LivePtr>,
     #[rust]
     route_widgets: ComponentMap<LiveId, WidgetRef>,
+    #[rust]
+    child_routers: ComponentMap<LiveId, RouterWidgetRef>,
+    #[rust]
+    route_patterns: ComponentMap<LiveId, String>,
+    #[rust]
+    route_registry: RouteRegistry,
 }
 
 impl LiveHook for RouterWidget {
@@ -156,6 +162,121 @@ impl RouterWidget {
     pub fn current_route_id(&self) -> Option<LiveId> {
         self.router.current_route_id()
     }
+
+    /// Navigate by path string
+    pub fn navigate_by_path(&mut self, cx: &mut Cx, path: &str) -> bool {
+        // First try to resolve in this router
+        if let Some(route) = self.route_registry.resolve_path(path) {
+            if self.route_templates.contains_key(&route.id) {
+                self.router.navigate(route.clone());
+                self.active_route = route.id;
+
+                if let Some(ptr) = self.route_templates.get(&route.id) {
+                    self.route_widgets
+                        .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+                }
+
+                self.redraw(cx);
+                return true;
+            }
+        }
+
+        // Try nested routers - check if any child router's parent route matches the beginning of the path
+        let route_ids_to_check: Vec<LiveId> = self.child_routers.keys().cloned().collect();
+        
+        for route_id in route_ids_to_check {
+            // Check if path starts with this route's pattern
+            if let Some(pattern) = self.route_patterns.get(&route_id) {
+                // Check if path matches the pattern or starts with it
+                if let Some(route) = self.route_registry.resolve_path(path) {
+                    if route.id == route_id {
+                        // Path matches parent route, activate it
+                        self.router.navigate(route.clone());
+                        self.active_route = route.id;
+                        
+                        if let Some(ptr) = self.route_templates.get(&route_id) {
+                            self.route_widgets
+                                .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+                        }
+                        
+                        self.redraw(cx);
+                        return true;
+                    }
+                }
+                
+                // Try to match pattern and extract remaining path
+                if let Some(pattern_obj) = self.route_registry.get_pattern(route_id) {
+                    if let Some(params) = pattern_obj.matches(path) {
+                        // Pattern matches, create route and navigate
+                        let route = Route {
+                            id: route_id,
+                            params,
+                            pattern: Some(pattern_obj.clone()),
+                        };
+                        self.router.navigate(route.clone());
+                        self.active_route = route.id;
+                        
+                        if let Some(ptr) = self.route_templates.get(&route_id) {
+                            self.route_widgets
+                                .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+                        }
+                        
+                        self.redraw(cx);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        log!("Router: No route found for path: {}", path);
+        false
+    }
+
+    /// Register a child router
+    pub fn register_child_router(&mut self, route_id: LiveId, child: RouterWidgetRef) {
+        self.child_routers.insert(route_id, child);
+    }
+
+    /// Register a route pattern
+    pub fn register_route_pattern(&mut self, pattern: &str, route_id: LiveId) -> Result<(), String> {
+        self.route_registry.register_pattern(pattern, route_id)?;
+        self.route_patterns.insert(route_id, pattern.to_string());
+        Ok(())
+    }
+
+    /// Navigate to a nested route
+    pub fn navigate_nested(&mut self, cx: &mut Cx, path: &[LiveId], route: Route) -> bool {
+        if path.is_empty() {
+            // Navigate in current router
+            if self.route_templates.contains_key(&route.id) {
+                self.router.navigate(route.clone());
+                self.active_route = route.id;
+
+                if let Some(ptr) = self.route_templates.get(&route.id) {
+                    self.route_widgets
+                        .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+                }
+
+                self.redraw(cx);
+                return true;
+            }
+            return false;
+        }
+
+        // Navigate to child router
+        let first = path[0];
+        let child_router_opt = self.child_routers.get(&first).cloned();
+        if let Some(child_router) = child_router_opt {
+            if let Some(mut child) = child_router.borrow_mut() {
+                if child.navigate_nested(cx, &path[1..], route) {
+                    self.redraw(cx);
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
 }
 
 impl WidgetNode for RouterWidget {
@@ -172,26 +293,57 @@ impl WidgetNode for RouterWidget {
     }
 
     fn find_widgets(&self, path: &[LiveId], cached: WidgetCache, results: &mut WidgetSet) {
+        if path.is_empty() {
+            return;
+        }
+
+        // Check route widgets
         for (route_id, widget) in self.route_widgets.iter() {
-            if path.len() > 0 && path[0] == *route_id {
+            if path[0] == *route_id {
                 if path.len() == 1 {
                     results.push(widget.clone());
                 } else {
                     widget.find_widgets(&path[1..], cached, results);
                 }
-            } else {
-                widget.find_widgets(path, cached, results);
+                return;
             }
+        }
+
+        // Check child routers
+        for (route_id, child_router) in self.child_routers.iter() {
+            if path[0] == *route_id {
+                if let Some(child) = child_router.borrow() {
+                    child.find_widgets(&path[1..], cached, results);
+                }
+                return;
+            }
+        }
+
+        // Fallback: search all widgets
+        for widget in self.route_widgets.values() {
+            widget.find_widgets(path, cached, results);
         }
     }
 
     fn uid_to_widget(&self, uid: WidgetUid) -> WidgetRef {
+        // Check route widgets
         for widget in self.route_widgets.values() {
             let result = widget.uid_to_widget(uid);
             if !result.is_empty() {
                 return result;
             }
         }
+
+        // Check child routers
+        for child_router in self.child_routers.values() {
+            if let Some(child) = child_router.borrow() {
+                let result = child.uid_to_widget(uid);
+                if !result.is_empty() {
+                    return result;
+                }
+            }
+        }
+
         WidgetRef::empty()
     }
 }
@@ -215,6 +367,17 @@ impl Widget for RouterWidget {
                 widget.handle_event(cx, event, scope);
             }
         }
+
+        // Handle events for child router if active route has one
+        if let Some(child_router) = self.child_routers.get_mut(&self.active_route) {
+            if let Some(mut child) = child_router.borrow_mut() {
+                let child_uid = child.widget_uid();
+                // Group actions for the child router so they're properly scoped
+                cx.group_widget_actions(uid, child_uid, |cx| {
+                    child.handle_event(cx, event, scope)
+                });
+            }
+        }
     }
 
     fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
@@ -222,6 +385,13 @@ impl Widget for RouterWidget {
 
         if let Some(widget) = self.route_widgets.get_mut(&self.active_route) {
             widget.draw_all(cx, scope);
+        }
+
+        // Draw child routers if active route has one
+        if let Some(child_router) = self.child_routers.get(&self.active_route) {
+            if let Some(mut child) = child_router.borrow_mut() {
+                child.draw_all(cx, scope);
+            }
         }
 
         cx.end_turtle_with_area(&mut self.area);
@@ -259,6 +429,44 @@ impl RouterWidgetRef {
             inner.current_route_id()
         } else {
             None
+        }
+    }
+
+    pub fn current_route(&self) -> Option<Route> {
+        if let Some(inner) = self.borrow() {
+            inner.router.current_route().cloned()
+        } else {
+            None
+        }
+    }
+
+    pub fn navigate_by_path(&self, cx: &mut Cx, path: &str) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.navigate_by_path(cx, path)
+        } else {
+            false
+        }
+    }
+
+    pub fn register_child_router(&self, route_id: LiveId, child: RouterWidgetRef) {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.register_child_router(route_id, child);
+        }
+    }
+
+    pub fn register_route_pattern(&self, pattern: &str, route_id: LiveId) -> Result<(), String> {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.register_route_pattern(pattern, route_id)
+        } else {
+            Err("Cannot borrow router widget".to_string())
+        }
+    }
+
+    pub fn navigate_nested(&self, cx: &mut Cx, path: &[LiveId], route: Route) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.navigate_nested(cx, path, route)
+        } else {
+            false
         }
     }
 }

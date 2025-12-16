@@ -1,6 +1,100 @@
-use crate::{navigation::NavigationHistory, route::Route};
+use crate::{navigation::NavigationHistory, route::{Route, RoutePattern}};
 use makepad_live_id::*;
 use makepad_micro_serde::*;
+use std::collections::HashMap;
+
+/// Route registry entry
+#[derive(Clone, Debug)]
+struct RouteEntry {
+    route_id: LiveId,
+    pattern: Option<RoutePattern>,
+    priority: usize,
+}
+
+/// Registry for pattern-based routes
+#[derive(Clone, Debug, Default)]
+pub struct RouteRegistry {
+    /// Routes by LiveId (for exact matches)
+    by_id: HashMap<LiveId, RouteEntry>,
+    /// Routes by pattern (for path-based matching)
+    by_pattern: Vec<RouteEntry>,
+}
+
+impl RouteRegistry {
+    pub fn new() -> Self {
+        Self {
+            by_id: HashMap::new(),
+            by_pattern: Vec::new(),
+        }
+    }
+
+    /// Register a route by LiveId
+    pub fn register_by_id(&mut self, route_id: LiveId) {
+        let entry = RouteEntry {
+            route_id,
+            pattern: None,
+            priority: 0, // Highest priority
+        };
+        self.by_id.insert(route_id, entry);
+    }
+
+    /// Register a route pattern
+    pub fn register_pattern(&mut self, pattern: &str, route_id: LiveId) -> Result<(), String> {
+        let route_pattern = RoutePattern::parse(pattern)?;
+        let priority = route_pattern.priority();
+        let entry = RouteEntry {
+            route_id,
+            pattern: Some(route_pattern),
+            priority,
+        };
+        
+        // Insert in sorted order by priority (lower priority value = higher priority)
+        // Find insertion point
+        let pos = self.by_pattern.iter()
+            .position(|e| e.priority > priority)
+            .unwrap_or(self.by_pattern.len());
+        self.by_pattern.insert(pos, entry);
+        Ok(())
+    }
+
+    /// Resolve a path to a route
+    pub fn resolve_path(&self, path: &str) -> Option<Route> {
+        // First try exact LiveId match if path is a single identifier
+        // For now, we'll skip this and go straight to pattern matching
+        
+        // Try pattern matching
+        for entry in &self.by_pattern {
+            if let Some(ref pattern) = entry.pattern {
+                if let Some(params) = pattern.matches(path) {
+                    return Some(Route {
+                        id: entry.route_id,
+                        params,
+                        pattern: Some(pattern.clone()),
+                    });
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// Check if a route ID is registered
+    pub fn has_route(&self, route_id: LiveId) -> bool {
+        self.by_id.contains_key(&route_id)
+    }
+
+    /// Get route by ID
+    pub fn get_by_id(&self, route_id: LiveId) -> Option<&RouteEntry> {
+        self.by_id.get(&route_id)
+    }
+
+    /// Get pattern for a route ID
+    pub fn get_pattern(&self, route_id: LiveId) -> Option<&RoutePattern> {
+        self.by_pattern.iter()
+            .find(|e| e.route_id == route_id)
+            .and_then(|e| e.pattern.as_ref())
+    }
+}
 
 /// Router configuration and state
 #[derive(Clone, Debug, SerBin, DeBin, SerRon, DeRon)]
@@ -101,6 +195,8 @@ impl Router {
     pub fn depth(&self) -> usize {
         self.history.depth()
     }
+
+
 }
 
 /// Router actions for event handling
@@ -157,5 +253,56 @@ mod tests {
         assert_eq!(router.current_route_id(), Some(live_id!(settings)));
         assert_eq!(router.depth(), 1);
         assert!(!router.can_go_back());
+    }
+
+    #[test]
+    fn test_route_registry_register_pattern() {
+        let mut registry = RouteRegistry::new();
+        registry.register_pattern("/user/:id", live_id!(user_profile)).unwrap();
+        assert!(registry.has_route(live_id!(user_profile)));
+    }
+
+    #[test]
+    fn test_route_registry_resolve_path() {
+        let mut registry = RouteRegistry::new();
+        registry.register_pattern("/user/:id", live_id!(user_profile)).unwrap();
+        
+        let route = registry.resolve_path("/user/123").unwrap();
+        assert_eq!(route.id, live_id!(user_profile));
+        assert_eq!(route.get_param(LiveId::from_str("id")), Some(LiveId::from_str("123")));
+    }
+
+    #[test]
+    fn test_route_registry_priority() {
+        let mut registry = RouteRegistry::new();
+        // Register in reverse priority order
+        registry.register_pattern("/user/**", live_id!(user_wildcard)).unwrap();
+        registry.register_pattern("/user/*", live_id!(user_single)).unwrap();
+        registry.register_pattern("/user/:id", live_id!(user_dynamic)).unwrap();
+        registry.register_pattern("/user/profile", live_id!(user_static)).unwrap();
+
+        // Most specific should match first
+        let route = registry.resolve_path("/user/profile").unwrap();
+        assert_eq!(route.id, live_id!(user_static));
+
+        let route = registry.resolve_path("/user/123").unwrap();
+        assert_eq!(route.id, live_id!(user_dynamic));
+
+        let route = registry.resolve_path("/user/other").unwrap();
+        assert_eq!(route.id, live_id!(user_single));
+
+        let route = registry.resolve_path("/user/123/posts").unwrap();
+        assert_eq!(route.id, live_id!(user_wildcard));
+    }
+
+    #[test]
+    fn test_router_navigate_by_path() {
+        let mut router = Router::new(Route::new(live_id!(home)));
+        router.register_route_pattern("/user/:id", live_id!(user_profile)).unwrap();
+        
+        router.navigate_by_path("/user/123").unwrap();
+        let route = router.current_route().unwrap();
+        assert_eq!(route.id, live_id!(user_profile));
+        assert_eq!(route.get_param(LiveId::from_str("id")), Some(LiveId::from_str("123")));
     }
 }
