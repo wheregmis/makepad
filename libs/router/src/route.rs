@@ -107,7 +107,9 @@ impl RoutePattern {
                 RouteSegment::Dynamic(param_name) => {
                     let value = path_segments[path_idx];
                     let param_key = LiveId::from_str(param_name);
-                    let param_value = LiveId::from_str(value);
+                    // Use from_str_with_intern to store the string so it can be retrieved later
+                    use makepad_live_id::InternLiveId;
+                    let param_value = LiveId::from_str_with_intern(value, InternLiveId::Yes);
                     params.add(param_key, param_value);
                     path_idx += 1;
                 }

@@ -451,11 +451,20 @@ impl MatchEvent for App {
         if router.current_route_id() == Some(live_id!(user_profile)) {
             if let Some(route) = router.current_route() {
                 if let Some(user_id) = route.get_param(LiveId::from_str("id")) {
-                    user_id.as_string(|id_str| {
-                        if let Some(id) = id_str {
-                            log!("User ID from route: {}", id);
+                    // Extract the user ID string from the LiveId
+                    let user_id_str = user_id.as_string(|id_str| id_str.map(|s| s.to_string()));
+
+                    if let Some(id) = user_id_str {
+                        log!("User ID from route: {}", id);
+                        // Update the label with the actual user ID
+                        if let Some(mut label) = self
+                            .ui
+                            .label(ids!(router.user_profile.user_id_label))
+                            .borrow_mut()
+                        {
+                            label.set_text(cx, &format!("User ID: {}", id));
                         }
-                    });
+                    }
                 }
             }
         }
