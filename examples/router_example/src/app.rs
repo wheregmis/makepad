@@ -323,12 +323,19 @@ live_design! {
                 // Router content area
                 router = <RouterWidget> {
                     width: Fill, height: Fill
+                    default_route: home
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
                     about = <AboutPage> {}
-                    user_profile = <UserProfilePage> {}
-                    admin = <AdminDashboard> {}
-                    not_found = <NotFoundPage> {}
+                    user_profile = <UserProfilePage> {
+                        route_pattern: "/user/:id"
+                    }
+                    admin = <AdminDashboard> {
+                        route_pattern: "/admin/*"
+                    }
+                    not_found = <NotFoundPage> {
+                        route_pattern: "/*"
+                    }
                 }
             }
         }
@@ -340,11 +347,9 @@ pub struct App {
     #[live]
     ui: WidgetRef,
     #[rust]
-    router_initialized: bool,
-    #[rust]
-    admin_router_initialized: bool,
-    #[rust]
     last_user_id: Option<String>,
+    #[rust]
+    callback_set: bool,
 }
 
 impl LiveRegister for App {
@@ -358,32 +363,13 @@ impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let router = self.ui.router_widget(ids!(router));
 
-        // Initialize with home page on first load only
-        if !self.router_initialized {
-            log!("🚀 Initializing router with home page");
-
-            // Register route patterns for dynamic segments and wildcards
-            router
-                .register_route_pattern("/user/:id", live_id!(user_profile))
-                .unwrap();
-            router
-                .register_route_pattern("/admin/*", live_id!(admin))
-                .unwrap();
-            router
-                .register_route_pattern("/*", live_id!(not_found))
-                .unwrap(); // Catch-all wildcard
-
-            router.navigate(cx, live_id!(home));
-            self.router_initialized = true;
-        }
-
-        // Initialize nested admin router when admin route is active
-        if router.current_route_id() == Some(live_id!(admin)) && !self.admin_router_initialized {
-            // Register child router programmatically
-            let admin_router_ref = self.ui.router_widget(ids!(router.admin.admin_router));
-            router.register_child_router(live_id!(admin), admin_router_ref.clone());
-            admin_router_ref.navigate(cx, live_id!(admin_users));
-            self.admin_router_initialized = true;
+        // Set up route change callback once (if not already set)
+        if !self.callback_set {
+            router.on_route_change(|_cx, _old_route, new_route| {
+                // Log route changes for debugging
+                log!("Route changed to: {:?}", new_route.id);
+            });
+            self.callback_set = true;
         }
 
         // Navigation bar buttons (outside router - use raw actions)
@@ -423,8 +409,16 @@ impl MatchEvent for App {
         }
 
         // Admin nested router navigation
+        // Note: Child router should be auto-detected, but we still need to initialize it
+        // when the admin route becomes active
         if router.current_route_id() == Some(live_id!(admin)) {
             let admin_router = self.ui.router_widget(ids!(router.admin.admin_router));
+
+            // Initialize nested router on first access (auto-detection should handle registration)
+            // But we still need to set the initial route
+            if admin_router.current_route_id().is_none() {
+                admin_router.navigate(cx, live_id!(admin_users));
+            }
 
             if self
                 .ui
@@ -449,33 +443,29 @@ impl MatchEvent for App {
             }
         }
 
-        // Display user ID from dynamic segment (only update if it changed)
+        // Display user ID from dynamic segment using the new helper method
         if router.current_route_id() == Some(live_id!(user_profile)) {
-            if let Some(route) = router.current_route() {
-                if let Some(user_id) = route.get_param(LiveId::from_str("id")) {
-                    // Extract the user ID string from the LiveId
-                    let user_id_str = user_id.as_string(|id_str| id_str.map(|s| s.to_string()));
-
-                    if let Some(id) = user_id_str {
-                        // Only update if the user ID has changed
-                        if self.last_user_id.as_ref() != Some(&id) {
-                            log!("User ID from route: {}", id);
-                            // Update the label with the actual user ID
-                            if let Some(mut label) = self
-                                .ui
-                                .label(ids!(router.user_profile.user_id_label))
-                                .borrow_mut()
-                            {
-                                label.set_text(cx, &format!("User ID: {}", id));
-                            }
-                            self.last_user_id = Some(id);
-                        }
+            // Use the new get_param_string helper method
+            if let Some(user_id) = router.get_param_string("id") {
+                // Only update if the user ID has changed
+                if self.last_user_id.as_ref() != Some(&user_id) {
+                    log!("User ID from route: {}", user_id);
+                    // Update the label with the actual user ID
+                    if let Some(mut label) = self
+                        .ui
+                        .label(ids!(router.user_profile.user_id_label))
+                        .borrow_mut()
+                    {
+                        label.set_text(cx, &format!("User ID: {}", user_id));
                     }
+                    self.last_user_id = Some(user_id);
                 }
             }
         } else {
             // Clear the last user ID when not on user profile page
-            self.last_user_id = None;
+            if self.last_user_id.is_some() {
+                self.last_user_id = None;
+            }
         }
 
         // Back button

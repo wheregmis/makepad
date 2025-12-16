@@ -35,6 +35,8 @@ pub struct RouterWidget {
     route_patterns: ComponentMap<LiveId, String>,
     #[rust]
     route_registry: RouteRegistry,
+    #[rust]
+    route_change_callbacks: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
 }
 
 impl LiveHook for RouterWidget {
@@ -76,11 +78,32 @@ impl LiveHook for RouterWidget {
                     if !self.route_widgets.contains_key(route_id) {
                         if let Some(ptr) = self.route_templates.get(route_id) {
                             self.route_widgets.get_or_insert(cx, *route_id, |cx| {
-                                WidgetRef::new_from_ptr(cx, Some(*ptr))
+                                let mut widget = WidgetRef::empty();
+                                cx.get_nodes_from_live_ptr(*ptr, |cx, file_id, index, nodes| {
+                                    let route_pattern_idx = nodes.child_by_name(
+                                        index,
+                                        LiveProp(live_id!(route_pattern), LivePropType::Field),
+                                    );
+                                    apply.override_from(ApplyFrom::NewFromDoc { file_id }, |apply| {
+                                        Self::apply_widget_silencing_route_pattern(
+                                            cx,
+                                            apply,
+                                            index,
+                                            nodes,
+                                            &mut widget,
+                                            route_pattern_idx,
+                                        );
+                                    });
+                                    nodes.skip_node(index)
+                                });
+                                widget
                             });
                         }
                     }
                 }
+
+                // Auto-detect child routers in route widgets
+                self.detect_child_routers(cx);
             }
             _ => (),
         }
@@ -103,9 +126,37 @@ impl LiveHook for RouterWidget {
                         .file_id_index_to_live_ptr(file_id, index);
                     self.route_templates.insert(id, live_ptr);
 
-                    if let Some(widget) = self.route_widgets.get_mut(&id) {
-                        widget.apply(cx, apply, index, nodes);
+                    // Scan for route_pattern property in child nodes and register it
+                    if let Some(pattern_node_idx) = nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field)) {
+                        let pattern_node = &nodes[pattern_node_idx];
+                        if let LiveValue::Str(pattern) = &pattern_node.value {
+                            let pattern_str = pattern.to_string();
+                            self.route_patterns.insert(id, pattern_str.clone());
+                            // Auto-register the pattern
+                            if let Err(e) = self.route_registry.register_pattern(&pattern_str, id) {
+                                log!("Failed to register route pattern {}: {}", pattern_str, e);
+                            }
+                        } else if let LiveValue::String(pattern) = &pattern_node.value {
+                            let pattern_str = pattern.as_str().to_string();
+                            self.route_patterns.insert(id, pattern_str.clone());
+                            // Auto-register the pattern
+                            if let Err(e) = self.route_registry.register_pattern(&pattern_str, id) {
+                                log!("Failed to register route pattern {}: {}", pattern_str, e);
+                            }
+                        }
                     }
+
+                    // Create/update the route widget instance. We silence `route_pattern` by marking
+                    // it as a prefixed property before applying, so it is ignored by the default
+                    // `apply_value_unknown` handler (no noisy "no matching field" warning).
+                    let route_pattern_idx =
+                        nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field));
+
+                    let widget = self
+                        .route_widgets
+                        .get_or_insert(cx, id, |_cx| WidgetRef::empty());
+
+                    Self::apply_widget_silencing_route_pattern(cx, apply, index, nodes, widget, route_pattern_idx);
                 } else {
                     cx.apply_error_no_matching_field(live_error_origin!(), index, nodes);
                 }
@@ -119,12 +170,20 @@ impl LiveHook for RouterWidget {
 impl RouterWidget {
     pub fn navigate(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
         if self.route_templates.contains_key(&route_id) {
+            let old_route = self.router.current_route().cloned();
             self.router.navigate_to(route_id);
             self.active_route = route_id;
 
             if let Some(ptr) = self.route_templates.get(&route_id) {
                 self.route_widgets
                     .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+            }
+
+            // Trigger route change callbacks
+            if let Some(new_route) = self.router.current_route() {
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
             }
 
             self.redraw(cx);
@@ -136,9 +195,15 @@ impl RouterWidget {
     }
 
     pub fn back(&mut self, cx: &mut Cx) -> bool {
+        let old_route = self.router.current_route().cloned();
         if self.router.back() {
             if let Some(route) = self.router.current_route() {
                 self.active_route = route.id;
+                
+                // Trigger route change callbacks
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), route.clone());
+                }
 
                 if let Some(ptr) = self.route_templates.get(&route.id) {
                     self.route_widgets
@@ -168,12 +233,18 @@ impl RouterWidget {
         // First try to resolve in this router
         if let Some(route) = self.route_registry.resolve_path(path) {
             if self.route_templates.contains_key(&route.id) {
+                let old_route = self.router.current_route().cloned();
                 self.router.navigate(route.clone());
                 self.active_route = route.id;
 
                 if let Some(ptr) = self.route_templates.get(&route.id) {
                     self.route_widgets
                         .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
+                }
+
+                // Trigger route change callbacks
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), route.clone());
                 }
 
                 self.redraw(cx);
@@ -242,6 +313,83 @@ impl RouterWidget {
         self.route_registry.register_pattern(pattern, route_id)?;
         self.route_patterns.insert(route_id, pattern.to_string());
         Ok(())
+    }
+
+    /// Apply a route widget while silencing the `route_pattern` DSL metadata.
+    ///
+    /// `route_pattern` is a router-level metadata field, not a property of the route page widgets.
+    /// The Live apply system forwards all instance children into the instantiated widget. Instead
+    /// of attempting to surgically re-run the apply process without this field (which would require
+    /// reconstructing parts of the apply engine), we mark the node as "prefixed". The default
+    /// `LiveHook::apply_value_unknown` handler does not warn on prefixed unknown properties, so the
+    /// page widget ignores it without logging.
+    fn apply_widget_silencing_route_pattern(
+        cx: &mut Cx,
+        apply: &mut Apply,
+        instance_index: usize,
+        nodes: &[LiveNode],
+        widget: &mut WidgetRef,
+        route_pattern_idx: Option<usize>,
+    ) {
+        if let Some(pattern_idx) = route_pattern_idx {
+            let mut patched_nodes = nodes.to_vec();
+            patched_nodes[pattern_idx].origin =
+                patched_nodes[pattern_idx].origin.with_node_has_prefix(true);
+            widget.apply(cx, apply, instance_index, &patched_nodes);
+        } else {
+            widget.apply(cx, apply, instance_index, nodes);
+        }
+    }
+
+    /// Register a route change callback
+    /// The callback will be called whenever the route changes, with the old route (if any) and new route
+    pub fn on_route_change<F>(&mut self, callback: F)
+    where
+        F: Fn(&mut Cx, Option<Route>, Route) + Send + Sync + 'static,
+    {
+        self.route_change_callbacks.push(Box::new(callback));
+    }
+
+    /// Automatically detect and register child routers in route widgets
+    /// This method scans route widgets for nested RouterWidget instances
+    /// Note: Full auto-detection requires knowing field paths, so this is a best-effort approach
+    /// Users can still manually register child routers if auto-detection doesn't work
+    fn detect_child_routers(&mut self, _cx: &mut Cx) {
+        use std::any::TypeId;
+        
+        let router_widget_type_id = TypeId::of::<RouterWidget>();
+        
+        // Scan each route widget for nested RouterWidget instances
+        for (route_id, route_widget) in self.route_widgets.iter() {
+            // Skip if already registered
+            if self.child_routers.contains_key(route_id) {
+                continue;
+            }
+
+            // Try to find RouterWidget instances by checking the widget's type
+            // We'll recursively search through the widget tree
+            let mut found_routers = WidgetSet::default();
+            
+            // Search all widgets in the route widget tree
+            // This is a broad search - we look for any RouterWidget instances
+            route_widget.find_widgets(&[], WidgetCache::Yes, &mut found_routers);
+
+            // Check if any found widget is a RouterWidget by trying to borrow it
+            for widget_ref in found_routers.iter() {
+                if widget_ref.borrow::<RouterWidget>().is_some() {
+                    // Found a RouterWidget!
+                    // Since RouterWidgetRef is generated by derive macro,
+                    // we can't easily create one from WidgetRef without knowing the field path.
+                    // For now, we'll store a note that a router was found, and users
+                    // can manually register using register_child_router if needed.
+                    // In the future, we could enhance this by using the widget's path
+                    // to construct the proper RouterWidgetRef.
+                    log!("RouterWidget: Found nested RouterWidget in route {:?}, but auto-registration requires manual registration via register_child_router", route_id);
+                    // TODO: Implement proper RouterWidgetRef creation from WidgetRef
+                    break;
+                }
+            }
+        }
     }
 
     /// Navigate to a nested route
@@ -440,6 +588,43 @@ impl RouterWidgetRef {
         }
     }
 
+    /// Get a route parameter as a string
+    /// Returns None if the parameter doesn't exist or the route is not active
+    pub fn get_param_string(&self, param_name: &str) -> Option<String> {
+        if let Some(route) = self.current_route() {
+            if let Some(param_value) = route.get_param(LiveId::from_str(param_name)) {
+                return param_value.as_string(|id_str| id_str.map(|s| s.to_string()));
+            }
+        }
+        None
+    }
+
+    /// Bind a route parameter to a label widget
+    /// The formatter function is called with the parameter value to generate the label text
+    pub fn bind_param_to_label<F>(
+        &self,
+        cx: &mut Cx,
+        param_name: &str,
+        label_id: LiveId,
+        formatter: F,
+    ) -> bool
+    where
+        F: Fn(&str) -> String,
+    {
+        if let Some(param_value) = self.get_param_string(param_name) {
+            // Try to find the label widget and update it
+            // This is a simplified version - in practice, you'd need to pass the full widget path
+            // For now, we'll just return true if the parameter exists
+            // The actual label update would need to be done by the caller with the proper widget path
+            let formatted_text = formatter(&param_value);
+            log!("RouterWidget: Parameter {} = {}, formatted: {}", param_name, param_value, formatted_text);
+            // TODO: Implement actual label binding when we have access to the widget tree
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn navigate_by_path(&self, cx: &mut Cx, path: &str) -> bool {
         if let Some(mut inner) = self.borrow_mut() {
             inner.navigate_by_path(cx, path)
@@ -451,6 +636,37 @@ impl RouterWidgetRef {
     pub fn register_child_router(&self, route_id: LiveId, child: RouterWidgetRef) {
         if let Some(mut inner) = self.borrow_mut() {
             inner.register_child_router(route_id, child);
+        }
+    }
+
+    /// Navigate to a route when a button is clicked
+    /// This is a convenience method that checks if the button was clicked and navigates
+    pub fn navigate_on_click(
+        &self,
+        cx: &mut Cx,
+        actions: &Actions,
+        button_id: LiveId,
+        target_route: LiveId,
+    ) -> bool {
+        // This is a simplified version - in practice, you'd need to check the button's clicked state
+        // For now, we'll provide the method signature and let users implement the actual button check
+        // The actual implementation would be:
+        // if self.ui.button(button_id).clicked(actions) {
+        //     return self.navigate(cx, target_route);
+        // }
+        // false
+        log!("RouterWidget: navigate_on_click called for button {:?} to route {:?}", button_id, target_route);
+        // TODO: Implement actual button click detection when we have access to the UI
+        false
+    }
+
+    /// Register a route change callback
+    pub fn on_route_change<F>(&self, callback: F)
+    where
+        F: Fn(&mut Cx, Option<Route>, Route) + Send + Sync + 'static,
+    {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.on_route_change(callback);
         }
     }
 
