@@ -348,8 +348,6 @@ pub struct App {
     ui: WidgetRef,
     #[rust]
     last_user_id: Option<String>,
-    #[rust]
-    callback_set: bool,
 }
 
 impl LiveRegister for App {
@@ -363,13 +361,13 @@ impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let router = self.ui.router_widget(ids!(router));
 
-        // Set up route change callback once (if not already set)
-        if !self.callback_set {
-            router.on_route_change(|_cx, _old_route, new_route| {
-                // Log route changes for debugging
-                log!("Route changed to: {:?}", new_route.id);
-            });
-            self.callback_set = true;
+        // Observe router changes without callbacks by consuming emitted RouterAction widget-actions.
+        for action in actions.filter_widget_actions(router.widget_uid()) {
+            if let Some(router_action) = action.action.downcast_ref::<RouterAction>() {
+                if let RouterAction::RouteChanged { from, to } = router_action {
+                    log!("Route changed: {:?} -> {:?}", from, to);
+                }
+            }
         }
 
         // Navigation bar buttons (outside router - use raw actions)
@@ -399,7 +397,8 @@ impl MatchEvent for App {
             .clicked(&actions)
         {
             log!("🔐 Navigating to admin (nested router)");
-            router.navigate_by_path(cx, "/admin/dashboard");
+            // Replace, so the navbar back button cannot return to Home from Admin.
+            router.replace(cx, live_id!(admin));
         }
 
         // Wildcard route example - navigate to non-existent route
@@ -414,10 +413,18 @@ impl MatchEvent for App {
         if router.current_route_id() == Some(live_id!(admin)) {
             let admin_router = self.ui.router_widget(ids!(router.admin.admin_router));
 
+            for action in actions.filter_widget_actions(admin_router.widget_uid()) {
+                if let Some(router_action) = action.action.downcast_ref::<RouterAction>() {
+                    if let RouterAction::RouteChanged { from, to } = router_action {
+                        log!("Admin route changed: {:?} -> {:?}", from, to);
+                    }
+                }
+            }
+
             // Initialize nested router on first access (auto-detection should handle registration)
             // But we still need to set the initial route
             if admin_router.current_route_id().is_none() {
-                admin_router.navigate(cx, live_id!(admin_users));
+                admin_router.replace(cx, live_id!(admin_users));
             }
 
             if self
@@ -428,7 +435,7 @@ impl MatchEvent for App {
                 .clicked(&actions)
             {
                 log!("🔧 Admin: Navigating to settings (nested)");
-                admin_router.navigate(cx, live_id!(admin_settings));
+                admin_router.push(cx, live_id!(admin_settings));
             }
 
             if self
@@ -439,7 +446,7 @@ impl MatchEvent for App {
                 .clicked(&actions)
             {
                 log!("👥 Admin: Navigating to users (nested)");
-                admin_router.navigate(cx, live_id!(admin_users));
+                admin_router.push(cx, live_id!(admin_users));
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::{route::Route, router::{Router, RouteRegistry}};
+use crate::{route::Route, router::{Router, RouteRegistry, RouterAction}};
 use makepad_widgets::*;
 
 live_design! {
@@ -36,9 +36,9 @@ pub struct RouterWidget {
     #[rust]
     child_router_paths: ComponentMap<LiveId, Vec<Vec<LiveId>>>,
     #[rust]
-    route_registry: RouteRegistry,
-    #[rust]
     route_change_callbacks: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
+    #[rust]
+    pending_actions: Vec<RouterAction>,
 }
 
 impl LiveHook for RouterWidget {
@@ -54,7 +54,7 @@ impl LiveHook for RouterWidget {
             self.route_patterns.clear();
             self.child_router_paths.clear();
             self.child_routers.clear();
-            self.route_registry = RouteRegistry::default();
+            self.router.route_registry = RouteRegistry::default();
         }
     }
 
@@ -69,11 +69,8 @@ impl LiveHook for RouterWidget {
                     };
 
                     if initial_route.0 != 0 {
-                        self.router = if self.persist_state {
-                            Router::with_persistence(Route::new(initial_route))
-                        } else {
-                            Router::new(Route::new(initial_route))
-                        };
+                        self.router.persist_state = self.persist_state;
+                        self.router.reset(Route::new(initial_route));
                         self.active_route = initial_route;
                     }
                 }
@@ -139,14 +136,14 @@ impl LiveHook for RouterWidget {
                             let pattern_str = pattern.to_string();
                             self.route_patterns.insert(id, pattern_str.clone());
                             // Auto-register the pattern
-                            if let Err(e) = self.route_registry.register_pattern(&pattern_str, id) {
+                            if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
                                 log!("Failed to register route pattern {}: {}", pattern_str, e);
                             }
                         } else if let LiveValue::String(pattern) = &pattern_node.value {
                             let pattern_str = pattern.as_str().to_string();
                             self.route_patterns.insert(id, pattern_str.clone());
                             // Auto-register the pattern
-                            if let Err(e) = self.route_registry.register_pattern(&pattern_str, id) {
+                            if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
                                 log!("Failed to register route pattern {}: {}", pattern_str, e);
                             }
                         }
@@ -178,22 +175,105 @@ impl LiveHook for RouterWidget {
 }
 
 impl RouterWidget {
+    fn queue_route_actions(
+        &mut self,
+        primary_action: Option<RouterAction>,
+        old_route_id: Option<LiveId>,
+        new_route: &Route,
+    ) {
+        if let Some(primary_action) = primary_action {
+            self.pending_actions.push(primary_action);
+        }
+        self.pending_actions.push(RouterAction::RouteChanged {
+            from: old_route_id,
+            to: new_route.id,
+        });
+    }
+
+    fn flush_router_actions(&mut self, cx: &mut Cx, scope: &mut Scope) {
+        if self.pending_actions.is_empty() {
+            return;
+        }
+        let uid = self.widget_uid();
+        for action in self.pending_actions.drain(..) {
+            cx.widget_action(uid, &scope.path, action);
+        }
+    }
+
+    fn new_route_widget_from_ptr(cx: &mut Cx, ptr: LivePtr) -> WidgetRef {
+        let mut widget = WidgetRef::empty();
+        cx.get_nodes_from_live_ptr(ptr, |cx, file_id, index, nodes| {
+            let route_pattern_idx =
+                nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field));
+            let mut apply = ApplyFrom::NewFromDoc { file_id }.into();
+            Self::apply_widget_silencing_route_pattern(
+                cx,
+                &mut apply,
+                index,
+                nodes,
+                &mut widget,
+                route_pattern_idx,
+            );
+            nodes.skip_node(index)
+        });
+        widget
+    }
+
+    fn ensure_route_widget(&mut self, cx: &mut Cx, route_id: LiveId) {
+        if self.route_widgets.contains_key(&route_id) {
+            return;
+        }
+        let Some(ptr) = self.route_templates.get(&route_id).copied() else {
+            return;
+        };
+        self.route_widgets
+            .get_or_insert(cx, route_id, |cx| Self::new_route_widget_from_ptr(cx, ptr));
+    }
+
     pub fn navigate(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
         if self.route_templates.contains_key(&route_id) {
             let old_route = self.router.current_route().cloned();
             self.router.navigate_to(route_id);
             self.active_route = route_id;
 
-            if let Some(ptr) = self.route_templates.get(&route_id) {
-                self.route_widgets
-                    .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-            }
+            self.ensure_route_widget(cx, route_id);
 
-            // Trigger route change callbacks
-            if let Some(new_route) = self.router.current_route() {
+            if let Some(new_route) = self.router.current_route().cloned() {
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), new_route.clone());
                 }
+                self.queue_route_actions(
+                    Some(RouterAction::Navigate(new_route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &new_route,
+                );
+            }
+
+            self.redraw(cx);
+            true
+        } else {
+            log!("Router: Route template not found for {:?}", route_id);
+            false
+        }
+    }
+
+    pub fn replace(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if self.route_templates.contains_key(&route_id) {
+            let old_route = self.router.current_route().cloned();
+            self.router.replace_with(route_id);
+            self.active_route = route_id;
+
+            self.ensure_route_widget(cx, route_id);
+
+            if let Some(new_route) = self.router.current_route().cloned() {
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(
+                    Some(RouterAction::Replace(new_route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &new_route,
+                );
             }
 
             self.redraw(cx);
@@ -207,7 +287,7 @@ impl RouterWidget {
     pub fn back(&mut self, cx: &mut Cx) -> bool {
         let old_route = self.router.current_route().cloned();
         if self.router.back() {
-            if let Some(route) = self.router.current_route() {
+            if let Some(route) = self.router.current_route().cloned() {
                 self.active_route = route.id;
                 
                 // Trigger route change callbacks
@@ -215,11 +295,37 @@ impl RouterWidget {
                     callback(cx, old_route.clone(), route.clone());
                 }
 
-                if let Some(ptr) = self.route_templates.get(&route.id) {
-                    self.route_widgets
-                        .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-                }
+                self.ensure_route_widget(cx, route.id);
+                self.queue_route_actions(
+                    Some(RouterAction::Back),
+                    old_route.as_ref().map(|r| r.id),
+                    &route,
+                );
 
+                self.redraw(cx);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn forward(&mut self, cx: &mut Cx) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.forward() {
+            if let Some(route) = self.router.current_route().cloned() {
+                self.active_route = route.id;
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), route.clone());
+                }
+                self.ensure_route_widget(cx, route.id);
+                self.queue_route_actions(
+                    Some(RouterAction::Forward),
+                    old_route.as_ref().map(|r| r.id),
+                    &route,
+                );
                 self.redraw(cx);
                 true
             } else {
@@ -234,28 +340,148 @@ impl RouterWidget {
         self.router.can_go_back()
     }
 
+    pub fn can_go_forward(&self) -> bool {
+        self.router.can_go_forward()
+    }
+
+    pub fn depth(&self) -> usize {
+        self.router.depth()
+    }
+
     pub fn current_route_id(&self) -> Option<LiveId> {
         self.router.current_route_id()
+    }
+
+    pub fn clear_history(&mut self, cx: &mut Cx) {
+        self.router.clear_history();
+        self.redraw(cx);
+    }
+
+    pub fn reset(&mut self, cx: &mut Cx, route: Route) -> bool {
+        if !self.route_templates.contains_key(&route.id) {
+            log!("Router: Route template not found for {:?}", route.id);
+            return false;
+        }
+        let old_route = self.router.current_route().cloned();
+        self.router.reset(route.clone());
+        self.active_route = route.id;
+        self.ensure_route_widget(cx, route.id);
+
+        if let Some(new_route) = self.router.current_route().cloned() {
+            for callback in &self.route_change_callbacks {
+                callback(cx, old_route.clone(), new_route.clone());
+            }
+            self.queue_route_actions(
+                Some(RouterAction::Reset(new_route.clone())),
+                old_route.as_ref().map(|r| r.id),
+                &new_route,
+            );
+        }
+
+        self.redraw(cx);
+        true
+    }
+
+    pub fn push(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        self.navigate(cx, route_id)
+    }
+
+    pub fn pop(&mut self, cx: &mut Cx) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.pop() {
+            if let Some(new_route) = self.router.current_route().cloned() {
+                self.active_route = new_route.id;
+                self.ensure_route_widget(cx, new_route.id);
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(None, old_route.as_ref().map(|r| r.id), &new_route);
+                self.redraw(cx);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn pop_to(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.pop_to(route_id) {
+            if let Some(new_route) = self.router.current_route().cloned() {
+                self.active_route = new_route.id;
+                self.ensure_route_widget(cx, new_route.id);
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(None, old_route.as_ref().map(|r| r.id), &new_route);
+                self.redraw(cx);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn pop_to_root(&mut self, cx: &mut Cx) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.pop_to_root() {
+            if let Some(new_route) = self.router.current_route().cloned() {
+                self.active_route = new_route.id;
+                self.ensure_route_widget(cx, new_route.id);
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(None, old_route.as_ref().map(|r| r.id), &new_route);
+                self.redraw(cx);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn set_stack(&mut self, cx: &mut Cx, stack: Vec<Route>) -> bool {
+        let filtered: Vec<Route> = stack
+            .into_iter()
+            .filter(|r| self.route_templates.contains_key(&r.id))
+            .collect();
+        if filtered.is_empty() {
+            return false;
+        }
+        let old_route = self.router.current_route().cloned();
+        self.router.set_stack(filtered);
+        let Some(new_route) = self.router.current_route().cloned() else { return false };
+        self.active_route = new_route.id;
+        self.ensure_route_widget(cx, new_route.id);
+        for callback in &self.route_change_callbacks {
+            callback(cx, old_route.clone(), new_route.clone());
+        }
+        self.queue_route_actions(
+            Some(RouterAction::Reset(new_route.clone())),
+            old_route.as_ref().map(|r| r.id),
+            &new_route,
+        );
+        self.redraw(cx);
+        true
     }
 
     /// Navigate by path string
     pub fn navigate_by_path(&mut self, cx: &mut Cx, path: &str) -> bool {
         // First try to resolve in this router
-        if let Some(route) = self.route_registry.resolve_path(path) {
+        if let Some(route) = self.router.route_registry.resolve_path(path) {
             if self.route_templates.contains_key(&route.id) {
                 let old_route = self.router.current_route().cloned();
                 self.router.navigate(route.clone());
                 self.active_route = route.id;
 
-                if let Some(ptr) = self.route_templates.get(&route.id) {
-                    self.route_widgets
-                        .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-                }
+                self.ensure_route_widget(cx, route.id);
 
                 // Trigger route change callbacks
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), route.clone());
                 }
+                self.queue_route_actions(
+                    Some(RouterAction::Navigate(route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &route,
+                );
 
                 self.redraw(cx);
                 return true;
@@ -269,24 +495,31 @@ impl RouterWidget {
             // Check if path starts with this route's pattern
             if self.route_patterns.contains_key(&route_id) {
                 // Check if path matches the pattern or starts with it
-                if let Some(route) = self.route_registry.resolve_path(path) {
+                if let Some(route) = self.router.route_registry.resolve_path(path) {
                     if route.id == route_id {
                         // Path matches parent route, activate it
+                        let old_route = self.router.current_route().cloned();
                         self.router.navigate(route.clone());
                         self.active_route = route.id;
                         
-                        if let Some(ptr) = self.route_templates.get(&route_id) {
-                            self.route_widgets
-                                .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-                        }
+                        self.ensure_route_widget(cx, route_id);
                         
+                        for callback in &self.route_change_callbacks {
+                            callback(cx, old_route.clone(), route.clone());
+                        }
+                        self.queue_route_actions(
+                            Some(RouterAction::Navigate(route.clone())),
+                            old_route.as_ref().map(|r| r.id),
+                            &route,
+                        );
+
                         self.redraw(cx);
                         return true;
                     }
                 }
                 
                 // Try to match pattern and extract remaining path
-                if let Some(pattern_obj) = self.route_registry.get_pattern(route_id) {
+                if let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) {
                     if let Some(params) = pattern_obj.matches(path) {
                         // Pattern matches, create route and navigate
                         let route = Route {
@@ -294,14 +527,21 @@ impl RouterWidget {
                             params,
                             pattern: Some(pattern_obj.clone()),
                         };
+                        let old_route = self.router.current_route().cloned();
                         self.router.navigate(route.clone());
                         self.active_route = route.id;
                         
-                        if let Some(ptr) = self.route_templates.get(&route_id) {
-                            self.route_widgets
-                                .get_or_insert(cx, route_id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-                        }
+                        self.ensure_route_widget(cx, route_id);
                         
+                        for callback in &self.route_change_callbacks {
+                            callback(cx, old_route.clone(), route.clone());
+                        }
+                        self.queue_route_actions(
+                            Some(RouterAction::Navigate(route.clone())),
+                            old_route.as_ref().map(|r| r.id),
+                            &route,
+                        );
+
                         self.redraw(cx);
                         return true;
                     }
@@ -320,7 +560,7 @@ impl RouterWidget {
 
     /// Register a route pattern
     pub fn register_route_pattern(&mut self, pattern: &str, route_id: LiveId) -> Result<(), String> {
-        self.route_registry.register_pattern(pattern, route_id)?;
+        self.router.register_route_pattern(pattern, route_id)?;
         self.route_patterns.insert(route_id, pattern.to_string());
         Ok(())
     }
@@ -537,6 +777,7 @@ impl WidgetNode for RouterWidget {
 
 impl Widget for RouterWidget {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
+        self.flush_router_actions(cx, scope);
         let uid = self.widget_uid();
 
         // Handle events for ALL route widgets, not just the active one
@@ -610,9 +851,95 @@ impl RouterWidgetRef {
         }
     }
 
+    pub fn replace(&self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.replace(cx, route_id)
+        } else {
+            false
+        }
+    }
+
+    pub fn forward(&self, cx: &mut Cx) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.forward(cx)
+        } else {
+            false
+        }
+    }
+
     pub fn can_go_back(&self) -> bool {
         if let Some(inner) = self.borrow() {
             inner.can_go_back()
+        } else {
+            false
+        }
+    }
+
+    pub fn can_go_forward(&self) -> bool {
+        if let Some(inner) = self.borrow() {
+            inner.can_go_forward()
+        } else {
+            false
+        }
+    }
+
+    pub fn depth(&self) -> usize {
+        if let Some(inner) = self.borrow() {
+            inner.depth()
+        } else {
+            0
+        }
+    }
+
+    pub fn clear_history(&self, cx: &mut Cx) {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.clear_history(cx);
+        }
+    }
+
+    pub fn reset(&self, cx: &mut Cx, route: Route) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.reset(cx, route)
+        } else {
+            false
+        }
+    }
+
+    pub fn push(&self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.push(cx, route_id)
+        } else {
+            false
+        }
+    }
+
+    pub fn pop(&self, cx: &mut Cx) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.pop(cx)
+        } else {
+            false
+        }
+    }
+
+    pub fn pop_to(&self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.pop_to(cx, route_id)
+        } else {
+            false
+        }
+    }
+
+    pub fn pop_to_root(&self, cx: &mut Cx) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.pop_to_root(cx)
+        } else {
+            false
+        }
+    }
+
+    pub fn set_stack(&self, cx: &mut Cx, stack: Vec<Route>) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.set_stack(cx, stack)
         } else {
             false
         }

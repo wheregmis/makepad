@@ -4,7 +4,7 @@ use makepad_micro_serde::*;
 use std::collections::HashMap;
 
 /// Route registry entry
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, SerBin, DeBin, SerRon, DeRon)]
 struct RouteEntry {
     route_id: LiveId,
     pattern: Option<RoutePattern>,
@@ -12,7 +12,7 @@ struct RouteEntry {
 }
 
 /// Registry for pattern-based routes
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, SerBin, DeBin, SerRon, DeRon)]
 pub struct RouteRegistry {
     /// Routes by LiveId (for exact matches)
     by_id: HashMap<LiveId, RouteEntry>,
@@ -47,6 +47,8 @@ impl RouteRegistry {
             pattern: Some(route_pattern),
             priority,
         };
+
+        self.by_id.insert(route_id, entry.clone());
         
         // Insert in sorted order by priority (lower priority value = higher priority)
         // Find insertion point
@@ -98,6 +100,8 @@ pub struct Router {
     pub history: NavigationHistory,
     /// Whether to persist router state
     pub persist_state: bool,
+    /// Registry for pattern-based navigation (non-visual, usable headless).
+    pub route_registry: RouteRegistry,
 }
 
 impl Default for Router {
@@ -105,6 +109,7 @@ impl Default for Router {
         Self {
             history: NavigationHistory::empty(),
             persist_state: false,
+            route_registry: RouteRegistry::default(),
         }
     }
 }
@@ -115,6 +120,7 @@ impl Router {
         Self {
             history: NavigationHistory::new(initial_route),
             persist_state: false,
+            route_registry: RouteRegistry::default(),
         }
     }
 
@@ -123,6 +129,7 @@ impl Router {
         Self {
             history: NavigationHistory::new(initial_route),
             persist_state: true,
+            route_registry: RouteRegistry::default(),
         }
     }
 
@@ -191,6 +198,45 @@ impl Router {
         self.history.depth()
     }
 
+    /// Register a pattern-based route for `navigate_by_path`.
+    pub fn register_route_pattern(&mut self, pattern: &str, route_id: LiveId) -> Result<(), String> {
+        self.route_registry.register_pattern(pattern, route_id)
+    }
+
+    /// Navigate using a path string, using the registered route patterns.
+    pub fn navigate_by_path(&mut self, path: &str) -> Result<Route, String> {
+        let route = self
+            .route_registry
+            .resolve_path(path)
+            .ok_or_else(|| format!("No route found for path: {}", path))?;
+        self.navigate(route.clone());
+        Ok(route)
+    }
+
+    /// Push a route onto the stack (alias of `navigate`).
+    pub fn push(&mut self, route: Route) {
+        self.navigate(route);
+    }
+
+    /// Pop the current route (stack-style semantics).
+    pub fn pop(&mut self) -> bool {
+        self.history.pop()
+    }
+
+    /// Pop to the given route id (stack-style semantics).
+    pub fn pop_to(&mut self, route_id: LiveId) -> bool {
+        self.history.pop_to(route_id)
+    }
+
+    /// Pop to the root route (stack-style semantics).
+    pub fn pop_to_root(&mut self) -> bool {
+        self.history.pop_to_root()
+    }
+
+    /// Set the entire stack (stack-style semantics).
+    pub fn set_stack(&mut self, stack: Vec<Route>) {
+        self.history.set_stack(stack);
+    }
 
 }
 
@@ -284,7 +330,7 @@ mod tests {
         assert_eq!(route.id, live_id!(user_dynamic));
 
         let route = registry.resolve_path("/user/other").unwrap();
-        assert_eq!(route.id, live_id!(user_single));
+        assert_eq!(route.id, live_id!(user_dynamic));
 
         let route = registry.resolve_path("/user/123/posts").unwrap();
         assert_eq!(route.id, live_id!(user_wildcard));

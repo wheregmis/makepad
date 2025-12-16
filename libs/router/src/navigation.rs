@@ -1,4 +1,5 @@
 use crate::route::Route;
+use makepad_live_id::*;
 use makepad_micro_serde::*;
 
 /// Navigation history stack for managing route navigation
@@ -106,6 +107,58 @@ impl NavigationHistory {
     pub fn all_routes(&self) -> &[Route] {
         &self.stack
     }
+
+    /// Sets the entire stack (stack-style semantics).
+    ///
+    /// - If `stack` is empty, the history becomes empty.
+    /// - If `stack` is non-empty, the current route becomes the last element.
+    pub fn set_stack(&mut self, stack: Vec<Route>) {
+        if stack.is_empty() {
+            self.stack.clear();
+            self.current_index = 0;
+            return;
+        }
+        self.stack = stack;
+        self.current_index = self.stack.len() - 1;
+    }
+
+    /// Pops the current route (stack-style semantics).
+    ///
+    /// Unlike `back()`, this removes the current route from the stack and does not keep forward history.
+    pub fn pop(&mut self) -> bool {
+        if self.stack.len() <= 1 {
+            return false;
+        }
+        self.stack.pop();
+        self.current_index = self.stack.len() - 1;
+        true
+    }
+
+    /// Pops routes until `route_id` is the current route (stack-style semantics).
+    ///
+    /// Returns `false` if `route_id` does not exist in the stack or it is already the current route.
+    pub fn pop_to(&mut self, route_id: LiveId) -> bool {
+        let current = self.current().map(|r| r.id);
+        if current == Some(route_id) {
+            return false;
+        }
+        let Some(pos) = self.stack.iter().rposition(|r| r.id == route_id) else {
+            return false;
+        };
+        self.stack.truncate(pos + 1);
+        self.current_index = pos;
+        true
+    }
+
+    /// Pops to the root route (stack-style semantics).
+    pub fn pop_to_root(&mut self) -> bool {
+        if self.stack.len() <= 1 {
+            return false;
+        }
+        self.stack.truncate(1);
+        self.current_index = 0;
+        true
+    }
 }
 
 #[cfg(test)]
@@ -143,5 +196,37 @@ mod tests {
         assert_eq!(history.current().unwrap().id, live_id!(settings));
         assert_eq!(history.depth(), 1);
         assert!(!history.can_go_back());
+    }
+
+    #[test]
+    fn test_stack_pop() {
+        let mut history = NavigationHistory::new(Route::new(live_id!(home)));
+        history.push(Route::new(live_id!(settings)));
+        history.push(Route::new(live_id!(profile)));
+
+        assert!(history.pop());
+        assert_eq!(history.current().unwrap().id, live_id!(settings));
+        assert_eq!(history.depth(), 2);
+        assert!(!history.can_go_forward());
+    }
+
+    #[test]
+    fn test_stack_pop_to() {
+        let mut history = NavigationHistory::new(Route::new(live_id!(home)));
+        history.push(Route::new(live_id!(settings)));
+        history.push(Route::new(live_id!(profile)));
+
+        assert!(history.pop_to(live_id!(home)));
+        assert_eq!(history.current().unwrap().id, live_id!(home));
+        assert_eq!(history.depth(), 1);
+    }
+
+    #[test]
+    fn test_stack_set_stack() {
+        let mut history = NavigationHistory::empty();
+        history.set_stack(vec![Route::new(live_id!(home)), Route::new(live_id!(settings))]);
+        assert_eq!(history.current().unwrap().id, live_id!(settings));
+        assert_eq!(history.depth(), 2);
+        assert!(!history.can_go_forward());
     }
 }
