@@ -13,6 +13,7 @@ use makepad_widgets::*;
 pub use crate::hero::Hero;
 
 mod api;
+mod actions;
 mod guard_flow;
 mod hero;
 mod hero_render;
@@ -238,31 +239,6 @@ pub struct RouterWidget {
 }
 
 impl RouterWidget {
-    fn queue_route_actions(
-        &mut self,
-        primary_action: Option<RouterAction>,
-        old_route_id: Option<LiveId>,
-        new_route: &Route,
-    ) {
-        if let Some(primary_action) = primary_action {
-            self.pending_actions.push(primary_action);
-        }
-        self.pending_actions.push(RouterAction::RouteChanged {
-            from: old_route_id,
-            to: new_route.id,
-        });
-    }
-
-    fn flush_router_actions(&mut self, cx: &mut Cx, scope: &mut Scope) {
-        if self.pending_actions.is_empty() {
-            return;
-        }
-        let uid = self.widget_uid();
-        for action in self.pending_actions.drain(..) {
-            cx.widget_action(uid, &scope.path, action);
-        }
-    }
-
     /// Register a child router
     pub fn register_child_router(&mut self, route_id: LiveId, child: RouterWidgetRef) {
         if let Some(mut inner) = child.borrow_mut() {

@@ -47,8 +47,9 @@ Currently covered:
    - `widget/path_nav.rs` is already extracted (path resolution + not-found handling).
    - `widget/route_widgets.rs` is already extracted (route widget construction + metadata silencing).
    - `widget/live_apply.rs` is already extracted (LiveHook apply plumbing + route template scanning).
+   - `widget/actions.rs` is already extracted (action queue + emission plumbing).
    - Next candidates:
-      - `widget/actions.rs` (action queue + emission plumbing)
+      - `widget/fields.rs` (group RouterWidget fields into sub-structs)
 
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.
