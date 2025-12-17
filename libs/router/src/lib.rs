@@ -6,9 +6,11 @@ pub use makepad_widgets;
 pub mod navigation;
 pub mod route;
 pub mod router;
+pub mod url;
 pub mod widget;
 
 pub use navigation::*;
 pub use route::*;
 pub use router::*;
+pub use url::*;
 pub use widget::*;

@@ -15,8 +15,8 @@
 - [x] Per-route and per-navigation overrides (e.g. push slides, replace fades).
 
 ### Phase 4: URL + Deep Linking (Web + Desktop optional)
-- [ ] Parse + generate paths (including query + hash), synchronize with web history, and allow initial route from URL.
-- [ ] Add `navigate_by_url(url)` and `current_url()` helpers.
+- [x] Parse + generate paths (including query + hash), synchronize with web history, and allow initial route from URL.
+- [x] Add `navigate_by_url(url)` and `current_url()` helpers.
 
 ### Phase 5: Guards, Redirects, Middleware
 - [ ] Route guards (sync + async) for auth/feature flags; redirect/replace behaviors.

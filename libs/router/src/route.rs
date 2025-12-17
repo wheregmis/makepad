@@ -240,6 +240,49 @@ impl RoutePattern {
         }
         priority
     }
+
+    /// Format a concrete path (no wildcards) from this pattern and params.
+    pub fn format_path(&self, params: &RouteParams) -> Option<String> {
+        let mut out: Vec<String> = Vec::with_capacity(self.segments.len());
+        for segment in &self.segments {
+            match segment {
+                RouteSegment::Static(s) => out.push(s.clone()),
+                RouteSegment::Dynamic(param_name) => {
+                    let key = LiveId::from_str(param_name);
+                    let value = params.get(key)?;
+                    out.push(value.to_string());
+                }
+                RouteSegment::WildcardSingle | RouteSegment::WildcardMulti => return None,
+            }
+        }
+        Some(format!("/{}", out.join("/")))
+    }
+
+    /// Format the "base" part of a pattern, stopping before wildcards.
+    ///
+    /// This is useful for nested routing patterns like `/admin/**`, where the base is `/admin`.
+    pub fn format_base_path(&self, params: &RouteParams) -> String {
+        let mut out: Vec<String> = Vec::with_capacity(self.segments.len());
+        for segment in &self.segments {
+            match segment {
+                RouteSegment::Static(s) => out.push(s.clone()),
+                RouteSegment::Dynamic(param_name) => {
+                    let key = LiveId::from_str(param_name);
+                    if let Some(value) = params.get(key) {
+                        out.push(value.to_string());
+                    } else {
+                        break;
+                    }
+                }
+                RouteSegment::WildcardSingle | RouteSegment::WildcardMulti => break,
+            }
+        }
+        if out.is_empty() {
+            "/".to_string()
+        } else {
+            format!("/{}", out.join("/"))
+        }
+    }
 }
 
 impl Route {
