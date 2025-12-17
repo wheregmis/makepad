@@ -589,6 +589,19 @@ mod tests {
     }
 
     #[test]
+    fn test_pattern_prefix_tail_dynamic() {
+        let pattern = RoutePattern::parse("/user/:id/**").unwrap();
+        let (params, tail) = pattern
+            .matches_prefix_with_tail("/user/42/profile/settings")
+            .unwrap();
+        assert_eq!(
+            params.get(LiveId::from_str("id")),
+            Some(LiveId::from_str("42"))
+        );
+        assert_eq!(tail, "/profile/settings");
+    }
+
+    #[test]
     fn test_pattern_priority() {
         let static_pattern = RoutePattern::parse("/user/profile").unwrap();
         let dynamic_pattern = RoutePattern::parse("/user/:id").unwrap();

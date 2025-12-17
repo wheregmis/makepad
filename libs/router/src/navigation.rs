@@ -3,7 +3,7 @@ use makepad_live_id::*;
 use makepad_micro_serde::*;
 
 /// Navigation history stack for managing route navigation
-#[derive(Clone, Debug, Default, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, SerBin, DeBin, SerRon, DeRon)]
 pub struct NavigationHistory {
     /// Stack of routes representing navigation history
     stack: Vec<Route>,
