@@ -169,6 +169,7 @@ The router is designed to be:
 - Query parameter support
 - Deep linking
 - Route aliases
+- Debug router inspector overlay (`debug_inspector: true`)
 
 ## License
 

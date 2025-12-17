@@ -16,6 +16,16 @@ use makepad_widgets::*;
 pub use crate::hero::Hero;
 
 live_design! {
+    link widgets;
+    use link::theme::*;
+    use makepad_draw::shader::std::*;
+
+    DrawInspectorRect = {{DrawInspectorRect}} {
+        fn pixel(self) -> vec4 {
+            return self.color;
+        }
+    }
+
     pub RouterWidgetBase = {{RouterWidget}} {
         flow: Overlay
         clip_x: true
@@ -27,6 +37,13 @@ live_design! {
         replace_transition: none
         transition_duration: 0.25
         hero_transition: false
+        debug_inspector: false
+        inspector_bg: {draw_depth: 10.0, color: #x00000012}
+        inspector_text: {
+            text_style: <THEME_FONT_REGULAR> {font_size: 9}
+            color: #xFFFFFFFF
+            draw_depth: 11.0
+        }
 
         // Phase 4: URL + deep linking (web only).
         url_sync: true
@@ -49,6 +66,26 @@ pub enum RouterTransitionPreset {
     SlideRight,
     Scale,
     SharedAxis,
+}
+
+impl RouterTransitionPreset {
+    pub fn from_live_id(id: LiveId) -> Self {
+        match id {
+            x if x == live_id!(none) || x == live_id!(None) => RouterTransitionPreset::None,
+            x if x == live_id!(fade) || x == live_id!(Fade) => RouterTransitionPreset::Fade,
+            x if x == live_id!(slide_left) || x == live_id!(SlideLeft) => {
+                RouterTransitionPreset::SlideLeft
+            }
+            x if x == live_id!(slide_right) || x == live_id!(SlideRight) => {
+                RouterTransitionPreset::SlideRight
+            }
+            x if x == live_id!(scale) || x == live_id!(Scale) => RouterTransitionPreset::Scale,
+            x if x == live_id!(shared_axis) || x == live_id!(SharedAxis) => {
+                RouterTransitionPreset::SharedAxis
+            }
+            _ => RouterTransitionPreset::None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +127,19 @@ struct RouterTransitionState {
     progress: f64,
     hero_capture_done: bool,
     hero_pairs: Vec<HeroPair>,
+}
+
+impl RouterTransitionState {
+    fn tick(&mut self, time: f64) -> bool {
+        let start = self.start_time.get_or_insert(time);
+        let elapsed = (time - *start).max(0.0);
+        let mut t = elapsed / self.duration.max(0.000_1);
+        if t >= 1.0 {
+            t = 1.0;
+        }
+        self.progress = t;
+        t >= 1.0
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -211,6 +261,9 @@ pub struct RouterWidget {
     /// Enables shared-element ("hero") transitions between routes.
     #[live(false)]
     hero_transition: bool,
+    /// Shows a small debug overlay with current route/stack/params (dev tool).
+    #[live(false)]
+    debug_inspector: bool,
     #[rust]
     router: Router,
     #[rust]
@@ -271,6 +324,12 @@ pub struct RouterWidget {
     hero_from_draw_list: DrawList2d,
     #[rust(DrawList2d::new(cx))]
     hero_to_draw_list: DrawList2d,
+    #[rust(DrawList2d::new(cx))]
+    inspector_draw_list: DrawList2d,
+    #[live]
+    inspector_bg: DrawInspectorRect,
+    #[live]
+    inspector_text: DrawText,
     #[rust]
     transition: Option<RouterTransitionState>,
     #[rust]
@@ -491,6 +550,118 @@ impl LiveHook for RouterWidget {
 }
 
 impl RouterWidget {
+    fn debug_inspector_lines(&self) -> Vec<String> {
+        fn fmt_tail_stack(history: &crate::navigation::NavigationHistory, max: usize) -> String {
+            let stack = history.all_routes();
+            let idx = history.current_index();
+            if stack.is_empty() {
+                return "stack: (empty)".to_string();
+            }
+            let start = stack.len().saturating_sub(max);
+            let mut parts = Vec::<String>::new();
+            for (i, r) in stack.iter().enumerate().skip(start) {
+                if i == idx {
+                    parts.push(format!("[{}]", r.id.to_string()));
+                } else {
+                    parts.push(r.id.to_string());
+                }
+            }
+            format!("stack: {}", parts.join(" > "))
+        }
+
+        let mut out = Vec::<String>::new();
+        let route_id = self
+            .router
+            .current_route_id()
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "(none)".to_string());
+        out.push(format!("route: {}", route_id));
+
+        let idx = self.router.history.current_index();
+        out.push(format!(
+            "history: {}/{}  back:{} forward:{}",
+            idx,
+            self.router.depth().saturating_sub(1),
+            if self.router.can_go_back() { 1 } else { 0 },
+            if self.router.can_go_forward() { 1 } else { 0 }
+        ));
+
+        out.push(fmt_tail_stack(&self.router.history, 4));
+        out.push(format!("url: {}", self.current_url()));
+
+        if let Some(t) = &self.transition {
+            out.push(format!(
+                "transition: {:?} {:.0}%",
+                t.preset,
+                (t.progress * 100.0).clamp(0.0, 100.0)
+            ));
+        }
+        if self.pending_navigation.is_some() {
+            out.push("pending: guard/before-leave".to_string());
+        }
+
+        if let Some(route) = self.router.current_route() {
+            if !route.params.data.is_empty() {
+                let mut parts = Vec::<String>::new();
+                for (k, v) in route.params.data.iter().take(3) {
+                    parts.push(format!("{}={}", k.to_string(), v.to_string()));
+                }
+                out.push(format!("params: {}", parts.join(" ")));
+            }
+            if !route.query.data.is_empty() {
+                let mut parts = Vec::<String>::new();
+                for (k, v) in route.query.data.iter().take(3) {
+                    parts.push(format!("{}={}", k, v));
+                }
+                out.push(format!("query: {}", parts.join(" ")));
+            }
+        }
+
+        out
+    }
+
+    fn draw_debug_inspector(&mut self, cx: &mut Cx2d, rect: Rect) {
+        if !self.debug_inspector {
+            return;
+        }
+        self.inspector_draw_list.begin_always(cx);
+
+        // Ensure overlay draws above the routed content (ortho z-range is [-100..100]).
+        self.inspector_bg.draw_depth = 10.0;
+        self.inspector_text.draw_depth = 11.0;
+
+        let lines = self.debug_inspector_lines();
+        let font_size = self.inspector_text.text_style.font_size.max(6.0);
+        let line_h = font_size as f64 + 3.0;
+        let margin = 10.0;
+        let pad = 8.0;
+        let max_width = 280.0;
+        let width = max_width.min((rect.size.x - margin * 2.0).max(0.0));
+        let height = (lines.len() as f64 * line_h + pad * 2.0)
+            .min((rect.size.y - margin * 2.0).max(0.0));
+
+        if width <= 0.0 || height <= 0.0 {
+            self.inspector_draw_list.end(cx);
+            return;
+        }
+
+        let pos = rect.pos + dvec2(rect.size.x - width - margin, rect.size.y - height - margin);
+        let bg = Rect { pos, size: dvec2(width, height) };
+
+        self.inspector_bg.draw_abs(cx, bg);
+
+        let mut y = pos.y + pad;
+        for line in lines {
+            self.inspector_text.draw_abs(cx, dvec2(pos.x + pad, y), &line);
+            y += line_h;
+            if y > pos.y + height - 4.0 {
+                break;
+            }
+        }
+
+        self.inspector_draw_list.end(cx);
+    }
+
     fn resolve_nested_prefix(
         &self,
         path: &str,
@@ -1432,27 +1603,9 @@ impl RouterWidget {
         ok
     }
 
-    fn transition_preset_from_live_id(id: LiveId) -> RouterTransitionPreset {
-        match id {
-            x if x == live_id!(none) || x == live_id!(None) => RouterTransitionPreset::None,
-            x if x == live_id!(fade) || x == live_id!(Fade) => RouterTransitionPreset::Fade,
-            x if x == live_id!(slide_left) || x == live_id!(SlideLeft) => {
-                RouterTransitionPreset::SlideLeft
-            }
-            x if x == live_id!(slide_right) || x == live_id!(SlideRight) => {
-                RouterTransitionPreset::SlideRight
-            }
-            x if x == live_id!(scale) || x == live_id!(Scale) => RouterTransitionPreset::Scale,
-            x if x == live_id!(shared_axis) || x == live_id!(SharedAxis) => {
-                RouterTransitionPreset::SharedAxis
-            }
-            _ => RouterTransitionPreset::None,
-        }
-    }
-
     fn route_transition_spec(&self, route_id: LiveId) -> Option<RouterTransitionSpec> {
         let preset_id = self.route_transition_overrides.get(&route_id).copied()?;
-        let preset = Self::transition_preset_from_live_id(preset_id);
+        let preset = RouterTransitionPreset::from_live_id(preset_id);
         let duration = self
             .route_transition_duration_overrides
             .get(&route_id)
@@ -1467,7 +1620,7 @@ impl RouterWidget {
             RouterActionKind::Pop => self.pop_transition,
             RouterActionKind::Replace => self.replace_transition,
         };
-        let preset = Self::transition_preset_from_live_id(preset_id);
+        let preset = RouterTransitionPreset::from_live_id(preset_id);
         if preset == RouterTransitionPreset::None {
             return RouterTransitionSpec::none();
         }
@@ -1527,15 +1680,7 @@ impl RouterWidget {
         let Some(state) = &mut self.transition else {
             return;
         };
-        let start = state.start_time.get_or_insert(time);
-        let elapsed = (time - *start).max(0.0);
-        let mut t = elapsed / state.duration.max(0.000_1);
-        if t >= 1.0 {
-            t = 1.0;
-        }
-        state.progress = t;
-
-        if t < 1.0 {
+        if !state.tick(time) {
             self.transition_next_frame = cx.new_next_frame();
         } else {
             self.transition = None;
@@ -2791,6 +2936,7 @@ impl WidgetNode for RouterWidget {
     fn redraw(&mut self, cx: &mut Cx) {
         self.from_draw_list.redraw(cx);
         self.to_draw_list.redraw(cx);
+        self.inspector_draw_list.redraw(cx);
         self.area.redraw(cx);
     }
 
@@ -3056,9 +3202,20 @@ impl Widget for RouterWidget {
             cx.global::<HeroGlobals>().pop_router(router_uid);
         }
 
+        self.draw_debug_inspector(cx, rect);
+
         cx.end_turtle_with_area(&mut self.area);
         DrawStep::done()
     }
+}
+
+#[derive(Live, LiveHook, LiveRegister)]
+#[repr(C)]
+pub struct DrawInspectorRect {
+    #[deref]
+    draw_super: DrawQuad,
+    #[live]
+    color: Vec4f,
 }
 
 impl RouterWidgetRef {
@@ -3421,5 +3578,59 @@ impl RouterWidgetRef {
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use makepad_live_id::live_id;
+
+    #[test]
+    fn transition_preset_from_live_id_parses_known_values() {
+        assert_eq!(
+            RouterTransitionPreset::from_live_id(live_id!(Fade)),
+            RouterTransitionPreset::Fade
+        );
+        assert_eq!(
+            RouterTransitionPreset::from_live_id(live_id!(fade)),
+            RouterTransitionPreset::Fade
+        );
+        assert_eq!(
+            RouterTransitionPreset::from_live_id(live_id!(SlideLeft)),
+            RouterTransitionPreset::SlideLeft
+        );
+        assert_eq!(
+            RouterTransitionPreset::from_live_id(live_id!(shared_axis)),
+            RouterTransitionPreset::SharedAxis
+        );
+        assert_eq!(
+            RouterTransitionPreset::from_live_id(live_id!(does_not_exist)),
+            RouterTransitionPreset::None
+        );
+    }
+
+    #[test]
+    fn transition_state_ticks_to_completion() {
+        let mut state = RouterTransitionState {
+            from_route: live_id!(a),
+            to_route: live_id!(b),
+            preset: RouterTransitionPreset::Fade,
+            direction: RouterTransitionDirection::Forward,
+            start_time: None,
+            duration: 1.0,
+            progress: 0.0,
+            hero_capture_done: false,
+            hero_pairs: Vec::new(),
+        };
+
+        assert!(!state.tick(10.0));
+        assert_eq!(state.progress, 0.0);
+        assert!(!state.tick(10.5));
+        assert!((state.progress - 0.5).abs() < 1e-9);
+        assert!(state.tick(11.0));
+        assert_eq!(state.progress, 1.0);
+        assert!(state.tick(20.0));
+        assert_eq!(state.progress, 1.0);
     }
 }

@@ -28,5 +28,5 @@
 - [x] Persistence of history stack + current route (extend to params/query).
 
 ### Phase 7: Tooling + Testing
-- [ ] Add unit tests for transition state machine and per-route override parsing.
-- [ ] Add a small “router inspector” debug overlay for current route/stack/params.
+- [x] Add unit tests for transition state machine and per-route override parsing.
+- [x] Add a small “router inspector” debug overlay for current route/stack/params.
