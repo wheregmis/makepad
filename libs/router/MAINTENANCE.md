@@ -42,7 +42,9 @@ Currently covered:
    - `widget/nested.rs` is already extracted.
    - `widget/guard_flow.rs` is already extracted.
    - `widget/hero_render.rs` is already extracted.
+   - `widget/api.rs` is already extracted (public `RouterWidget` methods).
    - Next candidates:
+      - `widget/path_nav.rs` (path resolution + not-found handling)
       - `widget/hero.rs` (hero pairing + shared element transition driving)
 
 2. **Reduce cross-module coupling**
