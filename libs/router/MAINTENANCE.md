@@ -48,8 +48,10 @@ Currently covered:
    - `widget/live_apply.rs` is already extracted (LiveHook apply plumbing + route template scanning).
    - `widget/actions.rs` is already extracted (action queue + emission plumbing).
    - `widget/fields.rs` is already extracted (group RouterWidget state into sub-structs).
+   - `widget/persistence.rs` is already extracted (widget-level state save/restore helpers).
+   - `widget/callbacks.rs` is already extracted (route-change callback registration + dispatch).
    - Next candidates:
-      - `widget/persistence.rs` (state save/restore helpers, web-only bits isolated)
+      - `widget/guards.rs` (guard + before-leave registration + dispatch)
       
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.

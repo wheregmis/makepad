@@ -2,6 +2,12 @@ use crate::{route::RouteParams, route::RoutePattern, url::RouterUrl};
 use makepad_widgets::*;
 
 use super::RouterTransitionState;
+use crate::route::Route;
+
+#[derive(Default)]
+pub(crate) struct RouterCallbacks {
+    pub(crate) route_change: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
+}
 
 #[derive(Default)]
 pub(crate) struct WebUrlState {
@@ -58,4 +64,3 @@ pub(crate) struct TransitionRuntime {
     pub(crate) state: Option<RouterTransitionState>,
     pub(crate) next_frame: NextFrame,
 }
-

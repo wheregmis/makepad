@@ -43,9 +43,7 @@ impl RouterWidget {
                     None,
                 );
 
-                for callback in &self.route_change_callbacks {
-                    callback(cx, old_route.clone(), route.clone());
-                }
+                self.dispatch_route_change(cx, old_route.clone(), route.clone());
                 self.queue_route_actions(
                     Some(RouterAction::Navigate(route.clone())),
                     old_route.as_ref().map(|r| r.id),
@@ -89,9 +87,7 @@ impl RouterWidget {
                     None,
                 );
 
-                for callback in &self.route_change_callbacks {
-                    callback(cx, old_route.clone(), parent_route.clone());
-                }
+                self.dispatch_route_change(cx, old_route.clone(), parent_route.clone());
                 self.queue_route_actions(
                     Some(RouterAction::Navigate(parent_route.clone())),
                     old_route.as_ref().map(|r| r.id),
@@ -126,9 +122,7 @@ impl RouterWidget {
                     None,
                 );
                 if let Some(new_route) = self.router.current_route().cloned() {
-                    for callback in &self.route_change_callbacks {
-                        callback(cx, old_route.clone(), new_route.clone());
-                    }
+                    self.dispatch_route_change(cx, old_route.clone(), new_route.clone());
                     self.queue_route_actions(
                         Some(RouterAction::Navigate(new_route.clone())),
                         old_route.as_ref().map(|r| r.id),
@@ -178,9 +172,7 @@ impl RouterWidget {
                     RouterTransitionDirection::Forward,
                     None,
                 );
-                for callback in &self.route_change_callbacks {
-                    callback(cx, old_route.clone(), route.clone());
-                }
+                self.dispatch_route_change(cx, old_route.clone(), route.clone());
                 self.queue_route_actions(
                     Some(RouterAction::Replace(route.clone())),
                     old_route.as_ref().map(|r| r.id),
@@ -223,9 +215,7 @@ impl RouterWidget {
                     None,
                 );
 
-                for callback in &self.route_change_callbacks {
-                    callback(cx, old_route.clone(), parent_route.clone());
-                }
+                self.dispatch_route_change(cx, old_route.clone(), parent_route.clone());
                 self.queue_route_actions(
                     Some(RouterAction::Replace(parent_route.clone())),
                     old_route.as_ref().map(|r| r.id),
@@ -256,9 +246,7 @@ impl RouterWidget {
                 None,
             );
             if let Some(new_route) = self.router.current_route().cloned() {
-                for callback in &self.route_change_callbacks {
-                    callback(cx, old_route.clone(), new_route.clone());
-                }
+                self.dispatch_route_change(cx, old_route.clone(), new_route.clone());
                 self.queue_route_actions(
                     Some(RouterAction::Replace(new_route.clone())),
                     old_route.as_ref().map(|r| r.id),

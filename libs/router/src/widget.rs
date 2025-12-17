@@ -14,6 +14,7 @@ pub use crate::hero::Hero;
 
 mod api;
 mod actions;
+mod callbacks;
 mod fields;
 mod guard_flow;
 mod hero;
@@ -29,7 +30,7 @@ mod url_cache;
 mod url_sync;
 
 use guard_flow::PendingNavigation;
-use fields::{PointerCleanup, RouterCaches, RouterDrawLists, TransitionRuntime, WebUrlState};
+use fields::{PointerCleanup, RouterCaches, RouterCallbacks, RouterDrawLists, TransitionRuntime, WebUrlState};
 use transitions::{RouterActionKind, RouterTransitionDirection, RouterTransitionState};
 pub use transitions::{RouterTransitionPreset, RouterTransitionSpec};
 
@@ -187,7 +188,7 @@ pub struct RouterWidget {
     #[rust]
     child_router_paths: ComponentMap<LiveId, Vec<Vec<LiveId>>>,
     #[rust]
-    route_change_callbacks: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
+    callbacks: RouterCallbacks,
     #[rust]
     route_guards: Vec<RouterSyncGuard>,
     #[rust]
@@ -242,15 +243,6 @@ impl RouterWidget {
         self.caches.nested_prefix_cache_path.clear();
         self.caches.nested_prefix_cache_result = None;
         Ok(())
-    }
-
-    /// Register a route change callback
-    /// The callback will be called whenever the route changes, with the old route (if any) and new route
-    pub fn on_route_change<F>(&mut self, callback: F)
-    where
-        F: Fn(&mut Cx, Option<Route>, Route) + Send + Sync + 'static,
-    {
-        self.route_change_callbacks.push(Box::new(callback));
     }
 
     pub fn add_route_guard<F>(&mut self, guard: F)
