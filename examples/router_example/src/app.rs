@@ -423,6 +423,7 @@ live_design! {
                     replace_transition: Fade
                     transition_duration: 0.30
                     hero_transition: true
+                    use_initial_url: true
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
                     about = <AboutPage> {}
