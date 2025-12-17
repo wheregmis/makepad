@@ -1,6 +1,7 @@
 use makepad_live_id::*;
 use makepad_micro_serde::*;
 use crate::url;
+use std::collections::HashMap;
 
 /// Represents a route segment type in a pattern
 #[derive(Clone, Debug, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
@@ -23,7 +24,7 @@ pub struct RoutePattern {
 }
 
 /// Represents a route in the application
-#[derive(Clone, Debug, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, PartialEq, Eq, SerBin, DeBin, SerRon, DeRon)]
 pub struct Route {
     /// The unique identifier for this route
     pub id: LiveId,
@@ -38,17 +39,17 @@ pub struct Route {
 }
 
 /// Route parameters - can be extended with typed parameters in the future
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, SerBin, DeBin, SerRon, DeRon)]
 pub struct RouteParams {
     /// Generic parameters stored as LiveId key-value pairs
-    pub data: Vec<(LiveId, LiveId)>,
+    pub data: HashMap<LiveId, LiveId>,
 }
 
 /// Query parameters stored as a string map.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, SerBin, DeBin, SerRon, DeRon)]
 pub struct RouteQuery {
     /// Query parameters stored as key-value string pairs.
-    pub data: Vec<(String, String)>,
+    pub data: HashMap<String, String>,
 }
 
 impl RoutePattern {
@@ -334,17 +335,13 @@ impl Route {
 
     /// Add a parameter to the route
     pub fn param(mut self, key: LiveId, value: LiveId) -> Self {
-        self.params.data.push((key, value));
+        self.params.data.insert(key, value);
         self
     }
 
     /// Get a parameter value by key
     pub fn get_param(&self, key: LiveId) -> Option<LiveId> {
-        self.params
-            .data
-            .iter()
-            .find(|(k, _)| *k == key)
-            .map(|(_, v)| *v)
+        self.params.data.get(&key).copied()
     }
 
     pub fn get_param_string(&self, key: LiveId) -> Option<String> {
@@ -412,12 +409,12 @@ impl RouteParams {
 
     /// Add a parameter
     pub fn add(&mut self, key: LiveId, value: LiveId) {
-        self.data.push((key, value));
+        self.data.insert(key, value);
     }
 
     /// Get a parameter value by key
     pub fn get(&self, key: LiveId) -> Option<LiveId> {
-        self.data.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+        self.data.get(&key).copied()
     }
 }
 
@@ -427,26 +424,15 @@ impl RouteQuery {
     }
 
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.data
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.as_str())
+        self.data.get(key).map(|v| v.as_str())
     }
 
     pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {
-        let key = key.into();
-        let value = value.into();
-        if let Some((_, v)) = self.data.iter_mut().find(|(k, _)| *k == key) {
-            *v = value;
-            return;
-        }
-        self.data.push((key, value));
+        self.data.insert(key.into(), value.into());
     }
 
     pub fn remove(&mut self, key: &str) -> bool {
-        let before = self.data.len();
-        self.data.retain(|(k, _)| k != key);
-        before != self.data.len()
+        self.data.remove(key).is_some()
     }
 
     pub fn clear(&mut self) {

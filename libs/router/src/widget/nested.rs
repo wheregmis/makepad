@@ -1,6 +1,5 @@
 use crate::route::{Route, RouteParams, RoutePattern};
 use makepad_widgets::*;
-
 use super::{RouterWidget, RouterWidgetWidgetRefExt};
 
 impl RouterWidget {
@@ -8,10 +7,11 @@ impl RouterWidget {
         &self,
         path: &str,
     ) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
-        let route_ids_to_check: Vec<LiveId> = self.child_routers.keys().cloned().collect();
         let mut best: Option<(LiveId, RouteParams, RoutePattern, String, usize)> = None;
 
-        for route_id in route_ids_to_check {
+        // Support lazy route widget instantiation by using the static Live-scanned child router paths
+        // as candidates, even before the child router widgets are fully instantiated.
+        for route_id in self.child_router_paths.keys().cloned().chain(self.child_routers.keys().cloned()) {
             let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) else {
                 continue;
             };

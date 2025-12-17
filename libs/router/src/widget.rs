@@ -325,6 +325,18 @@ impl WidgetNode for RouterWidget {
             return;
         }
 
+        // Fast-path: active route widget.
+        if path[0] == self.active_route {
+            if let Some(widget) = self.route_widgets.get(&self.active_route) {
+                if path.len() == 1 {
+                    results.push(widget.clone());
+                } else {
+                    widget.find_widgets(&path[1..], cached, results);
+                }
+                return;
+            }
+        }
+
         // Check route widgets
         for (route_id, widget) in self.route_widgets.iter() {
             if path[0] == *route_id {
@@ -354,8 +366,19 @@ impl WidgetNode for RouterWidget {
     }
 
     fn uid_to_widget(&self, uid: WidgetUid) -> WidgetRef {
+        // Fast-path: active route widget.
+        if let Some(active) = self.route_widgets.get(&self.active_route) {
+            let result = active.uid_to_widget(uid);
+            if !result.is_empty() {
+                return result;
+            }
+        }
+
         // Check route widgets
-        for widget in self.route_widgets.values() {
+        for (route_id, widget) in self.route_widgets.iter() {
+            if *route_id == self.active_route {
+                continue;
+            }
             let result = widget.uid_to_widget(uid);
             if !result.is_empty() {
                 return result;
@@ -394,21 +417,13 @@ impl Widget for RouterWidget {
         self.flush_router_actions(cx, scope);
         let uid = self.widget_uid();
 
-        // Handle events for ALL route widgets, not just the active one
-        // This ensures buttons on inactive pages still generate actions
-        for (route_id, widget) in self.route_widgets.iter_mut() {
-            let widget_uid = widget.widget_uid();
-            // Only group actions for the active route so they're properly scoped
-            if *route_id == self.active_route {
-                cx.group_widget_actions(uid, widget_uid, |cx| {
-                    widget.handle_event(cx, event, scope)
-                });
-            } else {
-                // For inactive routes, still handle events but don't group them
-                // This allows them to generate actions that can be captured
-                widget.handle_event(cx, event, scope);
-            }
+        // Handle active route first for better locality.
+        if let Some(active) = self.route_widgets.get_mut(&self.active_route) {
+            let active_uid = active.widget_uid();
+            cx.group_widget_actions(uid, active_uid, |cx| active.handle_event(cx, event, scope));
         }
+
+        // Performance-first: only the active route receives events.
 
         // Nested routers have `url_sync` disabled; sync the full (composed) URL from here.
         self.poll_pending_navigation(cx);

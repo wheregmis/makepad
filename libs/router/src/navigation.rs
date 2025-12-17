@@ -1,23 +1,29 @@
 use crate::route::Route;
 use makepad_live_id::*;
 use makepad_micro_serde::*;
+use std::collections::HashMap;
 
 /// Navigation history stack for managing route navigation
-#[derive(Clone, Debug, Default, PartialEq, Eq, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, Default)]
 pub struct NavigationHistory {
     /// Stack of routes representing navigation history
     stack: Vec<Route>,
     /// Current position in the history (for back/forward navigation)
     current_index: usize,
+    /// Reverse index for stack-style operations (not serialized).
+    index: HashMap<LiveId, Vec<usize>>,
 }
 
 impl NavigationHistory {
     /// Create a new navigation history with an initial route
     pub fn new(initial_route: Route) -> Self {
-        Self {
+        let mut out = Self {
             stack: vec![initial_route],
             current_index: 0,
-        }
+            index: HashMap::new(),
+        };
+        out.rebuild_index();
+        out
     }
 
     /// Create an empty navigation history
@@ -25,6 +31,7 @@ impl NavigationHistory {
         Self {
             stack: Vec::new(),
             current_index: 0,
+            index: HashMap::new(),
         }
     }
 
@@ -39,6 +46,7 @@ impl NavigationHistory {
         self.stack.truncate(self.current_index + 1);
         self.stack.push(route);
         self.current_index = self.stack.len() - 1;
+        self.rebuild_index();
     }
 
     /// Replace the current route without adding to history
@@ -49,6 +57,7 @@ impl NavigationHistory {
             self.stack.push(route);
             self.current_index = 0;
         }
+        self.rebuild_index();
     }
 
     /// Go back in history
@@ -95,12 +104,14 @@ impl NavigationHistory {
             self.stack.clear();
             self.current_index = 0;
         }
+        self.rebuild_index();
     }
 
     /// Reset to a specific route, clearing all history
     pub fn reset(&mut self, route: Route) {
         self.stack = vec![route];
         self.current_index = 0;
+        self.rebuild_index();
     }
 
     /// Get all routes in the stack
@@ -121,7 +132,13 @@ impl NavigationHistory {
             return Self::empty();
         }
         let current_index = current_index.min(stack.len().saturating_sub(1));
-        Self { stack, current_index }
+        let mut out = Self {
+            stack,
+            current_index,
+            index: HashMap::new(),
+        };
+        out.rebuild_index();
+        out
     }
 
     /// Sets the entire stack (stack-style semantics).
@@ -132,10 +149,12 @@ impl NavigationHistory {
         if stack.is_empty() {
             self.stack.clear();
             self.current_index = 0;
+            self.rebuild_index();
             return;
         }
         self.stack = stack;
         self.current_index = self.stack.len() - 1;
+        self.rebuild_index();
     }
 
     /// Pops the current route (stack-style semantics).
@@ -147,6 +166,7 @@ impl NavigationHistory {
         }
         self.stack.pop();
         self.current_index = self.stack.len() - 1;
+        self.rebuild_index();
         true
     }
 
@@ -158,11 +178,16 @@ impl NavigationHistory {
         if current == Some(route_id) {
             return false;
         }
-        let Some(pos) = self.stack.iter().rposition(|r| r.id == route_id) else {
+        let Some(pos) = self
+            .index
+            .get(&route_id)
+            .and_then(|v| v.last().copied())
+        else {
             return false;
         };
         self.stack.truncate(pos + 1);
         self.current_index = pos;
+        self.rebuild_index();
         true
     }
 
@@ -173,7 +198,94 @@ impl NavigationHistory {
         }
         self.stack.truncate(1);
         self.current_index = 0;
+        self.rebuild_index();
         true
+    }
+
+    fn rebuild_index(&mut self) {
+        self.index.clear();
+        for (i, r) in self.stack.iter().enumerate() {
+            self.index.entry(r.id).or_default().push(i);
+        }
+        // Clamp in case stack was externally mutated.
+        if self.stack.is_empty() {
+            self.current_index = 0;
+        } else {
+            self.current_index = self.current_index.min(self.stack.len() - 1);
+        }
+    }
+}
+
+impl PartialEq for NavigationHistory {
+    fn eq(&self, other: &Self) -> bool {
+        self.stack == other.stack && self.current_index == other.current_index
+    }
+}
+
+impl Eq for NavigationHistory {}
+
+impl SerBin for NavigationHistory {
+    fn ser_bin(&self, s: &mut Vec<u8>) {
+        self.stack.ser_bin(s);
+        self.current_index.ser_bin(s);
+    }
+}
+
+impl DeBin for NavigationHistory {
+    fn de_bin(o: &mut usize, d: &[u8]) -> Result<Self, DeBinErr> {
+        let stack = <Vec<Route>>::de_bin(o, d)?;
+        let current_index = usize::de_bin(o, d)?;
+        Ok(Self::from_parts(stack, current_index))
+    }
+}
+
+impl SerRon for NavigationHistory {
+    fn ser_ron(&self, d: usize, s: &mut SerRonState) {
+        s.st_pre();
+        s.field(d + 1, "stack");
+        self.stack.ser_ron(d + 1, s);
+        s.conl();
+        s.field(d + 1, "current_index");
+        self.current_index.ser_ron(d + 1, s);
+        s.out.push('\n');
+        s.st_post(d);
+    }
+}
+
+impl DeRon for NavigationHistory {
+    fn de_ron(s: &mut DeRonState, i: &mut std::str::Chars) -> Result<Self, DeRonErr> {
+        s.paren_open(i)?;
+        let mut stack: Option<Vec<Route>> = None;
+        let mut current_index: Option<usize> = None;
+        loop {
+            match s.tok {
+                DeRonTok::ParenClose => {
+                    s.paren_close(i)?;
+                    break;
+                }
+                DeRonTok::Ident => {
+                    let key = s.identbuf.clone();
+                    s.ident(i)?;
+                    s.colon(i)?;
+                    match key.as_str() {
+                        "stack" => stack = Some(Vec::<Route>::de_ron(s, i)?),
+                        "current_index" => current_index = Some(usize::de_ron(s, i)?),
+                        _ => {
+                            return Err(DeRonErr {
+                                msg: format!("Unexpected field {}", key),
+                                line: s.line,
+                                col: s.col,
+                            });
+                        }
+                    }
+                    s.eat_comma_paren(i)?;
+                }
+                _ => return Err(s.err_token("Identifier or )")),
+            }
+        }
+        let stack = stack.unwrap_or_default();
+        let current_index = current_index.unwrap_or(0);
+        Ok(Self::from_parts(stack, current_index))
     }
 }
 

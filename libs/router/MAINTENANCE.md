@@ -50,7 +50,7 @@ Currently covered:
    - `widget/actions.rs` is already extracted (action queue + emission plumbing).
    - Next candidates:
       - `widget/fields.rs` (group RouterWidget fields into sub-structs)
-
+      
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.
    - If UI-only types are needed, contain them under `widget` submodules.
@@ -59,3 +59,8 @@ Currently covered:
    - Nested prefix matching edge cases (dynamic + wildcards).
    - URL sync: path/query/hash roundtrip through `RouterUrl`.
    - History semantics: push/replace/back/forward/stack APIs.
+
+
+## Performance Notes
+
+- `RouterWidget` now lazily instantiates only the active route widget and only the active route receives events.

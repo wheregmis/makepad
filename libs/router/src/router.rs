@@ -243,7 +243,7 @@ impl Router {
 }
 
 /// Router actions for event handling
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RouterAction {
     /// Navigate to a route
     Navigate(Route),

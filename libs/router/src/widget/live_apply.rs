@@ -41,17 +41,9 @@ impl LiveHook for RouterWidget {
                     }
                 }
 
-                // Create widgets for ALL routes, not just the active one.
-                // This ensures buttons on inactive pages can still generate events.
-                for (route_id, _ptr) in self.route_templates.iter() {
-                    if self.route_widgets.contains_key(route_id) {
-                        continue;
-                    }
-                    let Some(ptr) = self.route_templates.get(route_id).copied() else {
-                        continue;
-                    };
-                    self.route_widgets
-                        .get_or_insert(cx, *route_id, |cx| Self::new_route_widget_from_ptr(cx, ptr));
+                // Performance-first: lazily instantiate only the active route.
+                if self.active_route.0 != 0 {
+                    self.ensure_route_widget(cx, self.active_route);
                 }
 
                 self.detect_child_routers(cx);
@@ -136,37 +128,39 @@ impl LiveHook for RouterWidget {
                     self.child_router_paths
                         .insert(id, Self::collect_child_router_paths(index, nodes));
 
-                    // Create/update the route widget instance. We silence `route_pattern` by marking
-                    // it as a prefixed property before applying.
-                    let route_pattern_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_pattern), LivePropType::Field),
-                    );
-                    let route_transition_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition), LivePropType::Field),
-                    );
-                    let route_transition_duration_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
-                    );
+                    // Create/update the route widget instance only if it already exists
+                    // (e.g. after navigation / hot reload). Otherwise it will be lazily created.
+                    if self.route_widgets.contains_key(&id) {
+                        let route_pattern_idx = nodes.child_by_name(
+                            index,
+                            LiveProp(live_id!(route_pattern), LivePropType::Field),
+                        );
+                        let route_transition_idx = nodes.child_by_name(
+                            index,
+                            LiveProp(live_id!(route_transition), LivePropType::Field),
+                        );
+                        let route_transition_duration_idx = nodes.child_by_name(
+                            index,
+                            LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+                        );
 
-                    let widget = self
-                        .route_widgets
-                        .get_or_insert(cx, id, |_cx| WidgetRef::empty());
+                        let widget = self
+                            .route_widgets
+                            .get_or_insert(cx, id, |_cx| WidgetRef::empty());
 
-                    Self::apply_widget_silencing_route_metadata(
-                        cx,
-                        apply,
-                        index,
-                        nodes,
-                        widget,
-                        &[
-                            route_pattern_idx,
-                            route_transition_idx,
-                            route_transition_duration_idx,
-                        ],
-                    );
+                        Self::apply_widget_silencing_route_metadata(
+                            cx,
+                            apply,
+                            index,
+                            nodes,
+                            widget,
+                            &[
+                                route_pattern_idx,
+                                route_transition_idx,
+                                route_transition_duration_idx,
+                            ],
+                        );
+                    }
                 } else {
                     cx.apply_error_no_matching_field(live_error_origin!(), index, nodes);
                 }
@@ -176,4 +170,3 @@ impl LiveHook for RouterWidget {
         nodes.skip_node(index)
     }
 }
-

@@ -5,11 +5,11 @@ use makepad_router::makepad_micro_serde::{DeRon, SerRon};
 #[test]
 fn router_state_ron_roundtrip_preserves_history_and_query() {
     let mut params = RouteParams::default();
-    params.data.push((live_id!(id), live_id!(user_42)));
+    params.add(live_id!(id), live_id!(user_42));
 
     let mut query = RouteQuery::default();
-    query.data.push(("tab".to_string(), "settings".to_string()));
-    query.data.push(("empty".to_string(), "".to_string()));
+    query.set("tab", "settings");
+    query.set("empty", "");
 
     let route = Route {
         id: live_id!(user_profile),
@@ -29,4 +29,3 @@ fn router_state_ron_roundtrip_preserves_history_and_query() {
     let de = RouterState::deserialize_ron(&ron).unwrap();
     assert_eq!(de, state);
 }
-

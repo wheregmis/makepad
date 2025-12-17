@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RouterUrl {
     pub path: String,
@@ -51,46 +53,49 @@ impl RouterUrl {
         format!("{}{}{}", self.path, self.query, self.hash)
     }
 
-    pub fn parse_query_map(&self) -> Vec<(String, String)> {
+    pub fn parse_query_map(&self) -> HashMap<String, String> {
         parse_query_map(&self.query)
     }
 }
 
-pub fn parse_query_map(query: &str) -> Vec<(String, String)> {
+pub fn parse_query_map(query: &str) -> HashMap<String, String> {
     let q = query.trim();
     let q = q.strip_prefix('?').unwrap_or(q);
     if q.is_empty() {
-        return Vec::new();
+        return HashMap::new();
     }
-    q.split('&')
-        .filter_map(|pair| {
-            if pair.is_empty() {
-                return None;
-            }
-            let (k, v) = match pair.split_once('=') {
-                Some((k, v)) => (k, v),
-                None => (pair, ""),
-            };
-            let key = decode_www_form_component(k);
-            if key.is_empty() {
-                return None;
-            }
-            let val = decode_www_form_component(v);
-            Some((key, val))
-        })
-        .collect()
+    let mut out = HashMap::new();
+    for pair in q.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        let (k, v) = match pair.split_once('=') {
+            Some((k, v)) => (k, v),
+            None => (pair, ""),
+        };
+        let key = decode_www_form_component(k);
+        if key.is_empty() {
+            continue;
+        }
+        let val = decode_www_form_component(v);
+        out.insert(key, val);
+    }
+    out
 }
 
-pub fn build_query_string(map: &[(String, String)]) -> String {
+pub fn build_query_string(map: &HashMap<String, String>) -> String {
     if map.is_empty() {
         return String::new();
     }
     let mut out = String::new();
     out.push('?');
-    for (i, (k, v)) in map.iter().enumerate() {
+    let mut keys: Vec<&String> = map.keys().collect();
+    keys.sort();
+    for (i, k) in keys.iter().enumerate() {
         if i > 0 {
             out.push('&');
         }
+        let v = map.get(*k).map(|s| s.as_str()).unwrap_or("");
         out.push_str(&encode_www_form_component(k));
         if !v.is_empty() {
             out.push('=');
