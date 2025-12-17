@@ -108,6 +108,22 @@ impl NavigationHistory {
         &self.stack
     }
 
+    pub fn current_index(&self) -> usize {
+        self.current_index
+    }
+
+    pub fn into_parts(self) -> (Vec<Route>, usize) {
+        (self.stack, self.current_index)
+    }
+
+    pub fn from_parts(stack: Vec<Route>, current_index: usize) -> Self {
+        if stack.is_empty() {
+            return Self::empty();
+        }
+        let current_index = current_index.min(stack.len().saturating_sub(1));
+        Self { stack, current_index }
+    }
+
     /// Sets the entire stack (stack-style semantics).
     ///
     /// - If `stack` is empty, the history becomes empty.

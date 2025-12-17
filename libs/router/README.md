@@ -7,6 +7,7 @@ A standalone routing package for Makepad applications, providing navigation and 
 - **LiveId-Based Routes**: Routes are identified using Makepad's `LiveId` system
 - **Navigation History**: Full browser-like back/forward navigation support
 - **Route Parameters**: Support for parameterized routes
+- **Query + Hash**: Optional query-string map and hash fragment stored per history entry
 - **State Persistence**: Optional state persistence using SerRon/DeRon
 - **Integration with Makepad Widgets**: Seamless integration with Makepad's widget system
 - **Declarative Route Definition**: Define routes directly in Makepad's DSL
@@ -90,6 +91,28 @@ if let Some(route) = router.current_route() {
         // Use the user_id parameter
     }
 }
+```
+
+### Query + State
+
+```rust
+use makepad_router::*;
+
+// Navigate with query string (works via navigate_by_path or navigate_by_url)
+router.navigate_by_path(cx, "/user/123?tab=posts");
+
+// Read query
+if let Some(route) = router.current_route() {
+    if let Some(tab) = route.query_get("tab") {
+        // ...
+    }
+}
+
+// Persist/restore history stack + current route
+let state = router.get_state();
+let ron = state.serialize_ron();
+let restored = RouterState::deserialize_ron(&ron).unwrap();
+router.set_state(cx, restored);
 ```
 
 ### Navigation Methods

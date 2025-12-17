@@ -1,5 +1,6 @@
 use makepad_live_id::*;
 use makepad_micro_serde::*;
+use crate::url;
 
 /// Represents a route segment type in a pattern
 #[derive(Clone, Debug, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
@@ -28,6 +29,10 @@ pub struct Route {
     pub id: LiveId,
     /// Optional parameters for the route
     pub params: RouteParams,
+    /// Optional query parameters for the route.
+    pub query: RouteQuery,
+    /// Optional hash fragment for the route (including the leading `#`).
+    pub hash: String,
     /// Optional route pattern for path-based matching
     pub pattern: Option<RoutePattern>,
 }
@@ -37,6 +42,13 @@ pub struct Route {
 pub struct RouteParams {
     /// Generic parameters stored as LiveId key-value pairs
     pub data: Vec<(LiveId, LiveId)>,
+}
+
+/// Query parameters stored as a string map.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, SerBin, DeBin, SerRon, DeRon)]
+pub struct RouteQuery {
+    /// Query parameters stored as key-value string pairs.
+    pub data: Vec<(String, String)>,
 }
 
 impl RoutePattern {
@@ -291,6 +303,8 @@ impl Route {
         Self {
             id,
             params: RouteParams::default(),
+            query: RouteQuery::default(),
+            hash: String::new(),
             pattern: None,
         }
     }
@@ -300,6 +314,8 @@ impl Route {
         Self {
             id,
             params,
+            query: RouteQuery::default(),
+            hash: String::new(),
             pattern: None,
         }
     }
@@ -310,6 +326,8 @@ impl Route {
         Ok(Self {
             id,
             params: RouteParams::default(),
+            query: RouteQuery::default(),
+            hash: String::new(),
             pattern: Some(route_pattern),
         })
     }
@@ -328,6 +346,62 @@ impl Route {
             .find(|(k, _)| *k == key)
             .map(|(_, v)| *v)
     }
+
+    pub fn get_param_string(&self, key: LiveId) -> Option<String> {
+        self.get_param(key)?.as_string(|id_str| id_str.map(|s| s.to_string()))
+    }
+
+    pub fn get_param_i64(&self, key: LiveId) -> Option<i64> {
+        self.get_param_string(key)?.parse().ok()
+    }
+
+    pub fn get_param_u64(&self, key: LiveId) -> Option<u64> {
+        self.get_param_string(key)?.parse().ok()
+    }
+
+    pub fn get_param_bool(&self, key: LiveId) -> Option<bool> {
+        match self.get_param_string(key)?.to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Some(true),
+            "0" | "false" | "no" | "off" => Some(false),
+            _ => None,
+        }
+    }
+
+    pub fn get_param_f64(&self, key: LiveId) -> Option<f64> {
+        self.get_param_string(key)?.parse().ok()
+    }
+
+    pub fn query_string(&self) -> String {
+        url::build_query_string(&self.query.data)
+    }
+
+    pub fn query_get(&self, key: &str) -> Option<&str> {
+        self.query.get(key)
+    }
+
+    pub fn query_get_string(&self, key: &str) -> Option<String> {
+        Some(self.query_get(key)?.to_string())
+    }
+
+    pub fn query_get_i64(&self, key: &str) -> Option<i64> {
+        self.query_get(key)?.parse().ok()
+    }
+
+    pub fn query_get_u64(&self, key: &str) -> Option<u64> {
+        self.query_get(key)?.parse().ok()
+    }
+
+    pub fn query_get_bool(&self, key: &str) -> Option<bool> {
+        match self.query_get(key)?.to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Some(true),
+            "0" | "false" | "no" | "off" => Some(false),
+            _ => None,
+        }
+    }
+
+    pub fn query_get_f64(&self, key: &str) -> Option<f64> {
+        self.query_get(key)?.parse().ok()
+    }
 }
 
 impl RouteParams {
@@ -344,6 +418,45 @@ impl RouteParams {
     /// Get a parameter value by key
     pub fn get(&self, key: LiveId) -> Option<LiveId> {
         self.data.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+    }
+}
+
+impl RouteQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.data
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        let key = key.into();
+        let value = value.into();
+        if let Some((_, v)) = self.data.iter_mut().find(|(k, _)| *k == key) {
+            *v = value;
+            return;
+        }
+        self.data.push((key, value));
+    }
+
+    pub fn remove(&mut self, key: &str) -> bool {
+        let before = self.data.len();
+        self.data.retain(|(k, _)| k != key);
+        before != self.data.len()
+    }
+
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+
+    pub fn from_query_string(query: &str) -> Self {
+        Self {
+            data: url::parse_query_map(query),
+        }
     }
 }
 

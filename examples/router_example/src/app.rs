@@ -90,6 +90,14 @@ live_design! {
             }
         }
 
+        tab_label = <Label> {
+            text: "Query tab: (none)"
+            draw_text: {
+                text_style: { font_size: 16 }
+                color: #xAAAAAA
+            }
+        }
+
         home_btn = <Button> {
             text: "Back to Home"
         }
@@ -491,6 +499,8 @@ pub struct App {
     #[rust]
     last_user_id: Option<String>,
     #[rust]
+    last_user_tab: Option<String>,
+    #[rust]
     auth_logged_in: Arc<AtomicBool>,
     #[rust]
     settings_dirty: Arc<AtomicBool>,
@@ -543,7 +553,7 @@ impl MatchEvent for App {
         // Dynamic segment navigation example
         if self.ui.button(ids!(router.home.user_btn)).clicked(&actions) {
             log!("👤 Navigating to user profile with dynamic segment");
-            router.navigate_by_path(cx, "/user/12345");
+            router.navigate_by_path(cx, "/user/12345?tab=posts");
         }
 
         // Nested router navigation example
@@ -606,10 +616,20 @@ impl MatchEvent for App {
                     self.last_user_id = Some(user_id);
                 }
             }
+            let tab = router.get_query_string("tab").unwrap_or_else(|| "(none)".to_string());
+            if self.last_user_tab.as_ref() != Some(&tab) {
+                self.ui
+                    .label(ids!(router.user_profile.tab_label))
+                    .set_text(cx, &format!("Query tab: {}", tab));
+                self.last_user_tab = Some(tab);
+            }
         } else {
             // Clear the last user ID when not on user profile page
             if self.last_user_id.is_some() {
                 self.last_user_id = None;
+            }
+            if self.last_user_tab.is_some() {
+                self.last_user_tab = None;
             }
         }
 

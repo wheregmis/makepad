@@ -71,6 +71,8 @@ impl RouteRegistry {
                     return Some(Route {
                         id: entry.route_id,
                         params,
+                        query: Default::default(),
+                        hash: String::new(),
                         pattern: Some(pattern.clone()),
                     });
                 }

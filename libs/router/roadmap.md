@@ -24,8 +24,8 @@
 - [x] “Before leave” confirmation hooks.
 
 ### Phase 6: State + Data
-- [ ] Typed params/query support (keep current `LiveId` path, add string map for query).
-- [ ] Persistence of history stack + current route (extend to params/query).
+- [x] Typed params/query support (keep current `LiveId` path, add string map for query).
+- [x] Persistence of history stack + current route (extend to params/query).
 
 ### Phase 7: Tooling + Testing
 - [ ] Add unit tests for transition state machine and per-route override parsing.

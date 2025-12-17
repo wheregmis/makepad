@@ -5,8 +5,9 @@ use crate::{
         RouterRedirectTarget, RouterSyncGuard,
     },
     hero::{HeroGlobals, HeroPair, HeroPhase},
-    route::{Route, RouteParams, RoutePattern},
+    route::{Route, RouteParams, RoutePattern, RouteQuery},
     router::{RouteRegistry, Router, RouterAction},
+    state::RouterState,
     url::RouterUrl,
 };
 use makepad_draw::draw_list_2d::DrawListExt;
@@ -242,10 +243,6 @@ pub struct RouterWidget {
     guard_bypass: bool,
     #[rust]
     pending_actions: Vec<RouterAction>,
-    #[rust]
-    url_query: String,
-    #[rust]
-    url_hash: String,
     #[rust]
     url_path_override: Option<String>,
     #[rust]
@@ -604,8 +601,6 @@ impl RouterWidget {
     }
 
     fn clear_url_extras(&mut self) {
-        self.url_query.clear();
-        self.url_hash.clear();
         self.url_path_override = None;
     }
 
@@ -807,7 +802,10 @@ impl RouterWidget {
     }
 
     pub fn current_url(&self) -> String {
-        format!("{}{}{}", self.current_path(), self.url_query, self.url_hash)
+        let Some(route) = self.router.current_route() else {
+            return self.current_path();
+        };
+        format!("{}{}{}", self.current_path_for_route(route), route.query_string(), route.hash)
     }
 
     fn apply_initial_url_if_needed(&mut self, cx: &mut Cx) {
@@ -864,7 +862,6 @@ impl RouterWidget {
             return;
         }
 
-        let parsed = RouterUrl::parse(url);
         if state_index >= 0 {
             self.web_history_initialized = true;
             self.web_history_index = state_index;
@@ -873,9 +870,7 @@ impl RouterWidget {
         }
 
         self.suppress_browser_update = true;
-        let _ = self.replace_by_path_internal(cx, &parsed.path, false);
-        self.url_query = parsed.query;
-        self.url_hash = parsed.hash;
+        let _ = self.replace_by_path_internal(cx, url, false);
         self.suppress_browser_update = false;
         self.web_mark_synced(cx);
         self.redraw(cx);
@@ -940,20 +935,29 @@ impl RouterWidget {
             RouterNavRequest::NavigateByPath { path }
             | RouterNavRequest::ReplaceByPath { path, .. } => {
                 self.detect_child_routers(cx);
+                let parsed = RouterUrl::parse(path);
+                let query = RouteQuery::from_query_string(&parsed.query);
+                let hash = parsed.hash.clone();
+                let path = parsed.path;
                 to_path = Some(path.clone());
 
-                if let Some(route) = self.router.route_registry.resolve_path(path) {
+                if let Some(mut route) = self.router.route_registry.resolve_path(&path) {
                     if self.route_templates.contains_key(&route.id) {
+                        route.query = query.clone();
+                        route.hash = hash.clone();
                         to = Some(route);
                     } else {
                         return None;
                     }
-                } else if let Some((route_id, params, pattern, _tail)) = self.resolve_nested_prefix(path)
+                } else if let Some((route_id, params, pattern, _tail)) =
+                    self.resolve_nested_prefix(&path)
                 {
                     if self.route_templates.contains_key(&route_id) {
                         to = Some(Route {
                             id: route_id,
                             params,
+                            query: query.clone(),
+                            hash: hash.clone(),
                             pattern: Some(pattern),
                         });
                     } else {
@@ -965,13 +969,19 @@ impl RouterWidget {
                     match request {
                         RouterNavRequest::NavigateByPath { .. } => {
                             if self.current_route_id() != Some(self.not_found_route) {
-                                to = Some(Route::new(self.not_found_route));
+                                let mut nf = Route::new(self.not_found_route);
+                                nf.query = query.clone();
+                                nf.hash = hash.clone();
+                                to = Some(nf);
                             } else {
                                 return None;
                             }
                         }
                         RouterNavRequest::ReplaceByPath { .. } => {
-                            to = Some(Route::new(self.not_found_route));
+                            let mut nf = Route::new(self.not_found_route);
+                            nf.query = query.clone();
+                            nf.hash = hash.clone();
+                            to = Some(nf);
                         }
                         _ => {}
                     }
@@ -981,27 +991,34 @@ impl RouterWidget {
             }
             RouterNavRequest::NavigateByUrl { url } | RouterNavRequest::ReplaceByUrl { url } => {
                 let parsed = RouterUrl::parse(url);
+                let query = RouteQuery::from_query_string(&parsed.query);
+                let hash = parsed.hash.clone();
                 to_url = Some(url.clone());
                 to_path = Some(parsed.path.clone());
-                return self.resolve_nav_context(
-                    cx,
-                    &match request {
-                        RouterNavRequest::NavigateByUrl { .. } => RouterNavRequest::NavigateByPath {
-                            path: parsed.path,
-                        },
-                        RouterNavRequest::ReplaceByUrl { .. } => RouterNavRequest::ReplaceByPath {
-                            path: parsed.path,
-                            clear_extras: false,
-                        },
-                        _ => return None,
+
+                let inner_request = match request {
+                    RouterNavRequest::NavigateByUrl { .. } => RouterNavRequest::NavigateByPath {
+                        path: parsed.to_string(),
                     },
-                )
-                .map(|(mut ctx, leaving)| {
-                    ctx.kind = kind;
-                    ctx.to_url = to_url;
-                    ctx.to_path = to_path;
-                    (ctx, leaving)
-                });
+                    RouterNavRequest::ReplaceByUrl { .. } => RouterNavRequest::ReplaceByPath {
+                        path: parsed.to_string(),
+                        clear_extras: false,
+                    },
+                    _ => return None,
+                };
+
+                let Some((mut ctx, leaving)) = self.resolve_nav_context(cx, &inner_request) else {
+                    return None;
+                };
+
+                if let Some(to_route) = ctx.to.as_mut() {
+                    to_route.query = query;
+                    to_route.hash = hash;
+                }
+                ctx.kind = kind;
+                ctx.to_url = to_url;
+                ctx.to_path = to_path;
+                return Some((ctx, leaving));
             }
             RouterNavRequest::Back { .. } => {
                 let mut preview = self.router.clone();
@@ -1064,7 +1081,7 @@ impl RouterWidget {
                     .resolve_nav_context(
                         cx,
                         &RouterNavRequest::ReplaceByPath {
-                            path: parsed.path,
+                            path: parsed.to_string(),
                             clear_extras: false,
                         },
                     )
@@ -1269,11 +1286,8 @@ impl RouterWidget {
             }
             RouterNavRequest::NavigateByUrl { url } => self.navigate_by_url(cx, &url),
             RouterNavRequest::ReplaceByUrl { url } => {
-                let parsed = RouterUrl::parse(&url);
                 self.ensure_web_history_initialized(cx);
-                let ok = self.replace_by_path_internal(cx, &parsed.path, false);
-                self.url_query = parsed.query;
-                self.url_hash = parsed.hash;
+                let ok = self.replace_by_path_internal(cx, &url, false);
                 if ok {
                     self.web_replace_current_url(cx);
                 }
@@ -1410,9 +1424,7 @@ impl RouterWidget {
         let parsed = RouterUrl::parse(url);
         self.ensure_web_history_initialized(cx);
 
-        let ok = self.navigate_by_path_internal(cx, &parsed.path, false);
-        self.url_query = parsed.query;
-        self.url_hash = parsed.hash;
+        let ok = self.navigate_by_path_internal(cx, &parsed.to_string(), false);
 
         if ok {
             self.web_push_current_url(cx);
@@ -2032,6 +2044,56 @@ impl RouterWidget {
         self.router.current_route_id()
     }
 
+    pub fn get_state(&self) -> RouterState {
+        RouterState {
+            history: self.router.history.clone(),
+            url_path_override: self.url_path_override.clone(),
+        }
+    }
+
+    pub fn set_state(&mut self, cx: &mut Cx, state: RouterState) -> bool {
+        let old_route = self.router.current_route().cloned();
+        let (stack, current_index) = state.history.into_parts();
+
+        let mut filtered = Vec::<Route>::new();
+        let mut new_current = 0usize;
+        for (idx, route) in stack.into_iter().enumerate() {
+            if !self.route_templates.contains_key(&route.id) {
+                continue;
+            }
+            if idx <= current_index {
+                new_current = filtered.len();
+            }
+            filtered.push(route);
+        }
+        if filtered.is_empty() {
+            return false;
+        }
+
+        self.clear_url_extras();
+        self.url_path_override = state.url_path_override;
+        self.router.history = crate::navigation::NavigationHistory::from_parts(filtered, new_current);
+        let Some(new_route) = self.router.current_route().cloned() else {
+            return false;
+        };
+        self.active_route = new_route.id;
+        self.transition = None;
+        self.ensure_route_widget(cx, new_route.id);
+
+        for callback in &self.route_change_callbacks {
+            callback(cx, old_route.clone(), new_route.clone());
+        }
+        self.queue_route_actions(
+            Some(RouterAction::Reset(new_route.clone())),
+            old_route.as_ref().map(|r| r.id),
+            &new_route,
+        );
+
+        self.web_replace_current_url(cx);
+        self.redraw(cx);
+        true
+    }
+
     pub fn clear_history(&mut self, cx: &mut Cx) {
         self.router.clear_history();
         self.web_replace_current_url(cx);
@@ -2238,6 +2300,11 @@ impl RouterWidget {
     }
 
     fn navigate_by_path_internal(&mut self, cx: &mut Cx, path: &str, clear_extras: bool) -> bool {
+        let parsed = RouterUrl::parse(path);
+        let query = RouteQuery::from_query_string(&parsed.query);
+        let hash = parsed.hash.clone();
+        let path = parsed.path;
+
         if clear_extras {
             self.clear_url_extras();
         } else {
@@ -2245,9 +2312,11 @@ impl RouterWidget {
         }
 
         // 1) Full match in this router.
-        if let Some(route) = self.router.route_registry.resolve_path(path) {
+        if let Some(mut route) = self.router.route_registry.resolve_path(&path) {
             if self.route_templates.contains_key(&route.id) {
                 let old_route = self.router.current_route().cloned();
+                route.query = query.clone();
+                route.hash = hash.clone();
                 self.router.navigate(route.clone());
                 self.active_route = route.id;
 
@@ -2273,7 +2342,7 @@ impl RouterWidget {
                 // If this route owns a child router, delegate the tail to it.
                 if self.child_routers.contains_key(&route.id) {
                     if let Some(pattern) = &route.pattern {
-                        if let Some((_params, tail)) = pattern.matches_prefix_with_tail(path) {
+                        if let Some((_params, tail)) = pattern.matches_prefix_with_tail(&path) {
                             let _ = self.delegate_tail_to_child(cx, route.id, &tail);
                         }
                     }
@@ -2285,12 +2354,14 @@ impl RouterWidget {
         }
 
         // 2) Prefix match for nested routing: activate a parent route and delegate the tail.
-        if let Some((route_id, params, pattern, tail)) = self.resolve_nested_prefix(path) {
+        if let Some((route_id, params, pattern, tail)) = self.resolve_nested_prefix(&path) {
             if self.route_templates.contains_key(&route_id) {
                 let old_route = self.router.current_route().cloned();
                 let parent_route = Route {
                     id: route_id,
                     params,
+                    query: query.clone(),
+                    hash: hash.clone(),
                     pattern: Some(pattern),
                 };
                 self.router.navigate(parent_route.clone());
@@ -2325,9 +2396,12 @@ impl RouterWidget {
             // Push not-found so the user can navigate back to the previous page.
             // Preserve the attempted path in the address bar.
             if self.current_route_id() != Some(self.not_found_route) {
-                self.url_path_override = Some(RouterUrl::parse(path).path);
+                self.url_path_override = Some(path);
                 let old_route = self.router.current_route().cloned();
-                self.router.navigate_to(self.not_found_route);
+                let mut nf = Route::new(self.not_found_route);
+                nf.query = query;
+                nf.hash = hash;
+                self.router.navigate(nf);
                 self.active_route = self.not_found_route;
                 self.ensure_route_widget(cx, self.not_found_route);
                 self.start_transition(
@@ -2359,15 +2433,22 @@ impl RouterWidget {
     }
 
     fn replace_by_path_internal(&mut self, cx: &mut Cx, path: &str, clear_extras: bool) -> bool {
+        let parsed = RouterUrl::parse(path);
+        let query = RouteQuery::from_query_string(&parsed.query);
+        let hash = parsed.hash.clone();
+        let path = parsed.path;
+
         if clear_extras {
             self.clear_url_extras();
         } else {
             self.url_path_override = None;
         }
 
-        if let Some(route) = self.router.route_registry.resolve_path(path) {
+        if let Some(mut route) = self.router.route_registry.resolve_path(&path) {
             if self.route_templates.contains_key(&route.id) {
                 let old_route = self.router.current_route().cloned();
+                route.query = query.clone();
+                route.hash = hash.clone();
                 self.router.replace(route.clone());
                 self.active_route = route.id;
                 self.ensure_route_widget(cx, route.id);
@@ -2391,7 +2472,7 @@ impl RouterWidget {
                 // If this route owns a child router, delegate the tail to it.
                 if self.child_routers.contains_key(&route.id) {
                     if let Some(pattern) = &route.pattern {
-                        if let Some((_params, tail)) = pattern.matches_prefix_with_tail(path) {
+                        if let Some((_params, tail)) = pattern.matches_prefix_with_tail(&path) {
                             let _ = self.delegate_tail_to_child(cx, route.id, &tail);
                         }
                     }
@@ -2402,12 +2483,14 @@ impl RouterWidget {
             }
         }
 
-        if let Some((route_id, params, pattern, tail)) = self.resolve_nested_prefix(path) {
+        if let Some((route_id, params, pattern, tail)) = self.resolve_nested_prefix(&path) {
             if self.route_templates.contains_key(&route_id) {
                 let old_route = self.router.current_route().cloned();
                 let parent_route = Route {
                     id: route_id,
                     params,
+                    query: query.clone(),
+                    hash: hash.clone(),
                     pattern: Some(pattern),
                 };
                 self.router.replace(parent_route.clone());
@@ -2438,9 +2521,12 @@ impl RouterWidget {
         }
 
         if self.not_found_route.0 != 0 && self.route_templates.contains_key(&self.not_found_route) {
-            self.url_path_override = Some(RouterUrl::parse(path).path);
+            self.url_path_override = Some(path);
             let old_route = self.router.current_route().cloned();
-            self.router.replace_with(self.not_found_route);
+            let mut nf = Route::new(self.not_found_route);
+            nf.query = query;
+            nf.hash = hash;
+            self.router.replace(nf);
             self.active_route = self.not_found_route;
             self.ensure_route_widget(cx, self.not_found_route);
             self.start_transition(
@@ -3161,6 +3247,38 @@ impl RouterWidgetRef {
             inner.router.current_route().cloned()
         } else {
             None
+        }
+    }
+
+    pub fn get_query_string(&self, key: &str) -> Option<String> {
+        self.current_route()?.query_get_string(key)
+    }
+
+    pub fn get_query_i64(&self, key: &str) -> Option<i64> {
+        self.current_route()?.query_get_i64(key)
+    }
+
+    pub fn get_query_u64(&self, key: &str) -> Option<u64> {
+        self.current_route()?.query_get_u64(key)
+    }
+
+    pub fn get_query_bool(&self, key: &str) -> Option<bool> {
+        self.current_route()?.query_get_bool(key)
+    }
+
+    pub fn get_query_f64(&self, key: &str) -> Option<f64> {
+        self.current_route()?.query_get_f64(key)
+    }
+
+    pub fn get_state(&self) -> Option<RouterState> {
+        Some(self.borrow()?.get_state())
+    }
+
+    pub fn set_state(&self, cx: &mut Cx, state: RouterState) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.set_state(cx, state)
+        } else {
+            false
         }
     }
 

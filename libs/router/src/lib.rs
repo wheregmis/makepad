@@ -8,6 +8,7 @@ pub mod hero;
 pub mod navigation;
 pub mod route;
 pub mod router;
+pub mod state;
 pub mod url;
 pub mod widget;
 
@@ -15,5 +16,6 @@ pub use guards::*;
 pub use navigation::*;
 pub use route::*;
 pub use router::*;
+pub use state::*;
 pub use url::*;
 pub use widget::*;
