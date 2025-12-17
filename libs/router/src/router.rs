@@ -1,4 +1,7 @@
-use crate::{navigation::NavigationHistory, route::{Route, RoutePattern}};
+use crate::{
+    navigation::NavigationHistory,
+    route::{Route, RoutePattern, RouteSegment},
+};
 use makepad_live_id::*;
 use makepad_micro_serde::*;
 use std::collections::HashMap;
@@ -12,12 +15,18 @@ struct RouteEntry {
 }
 
 /// Registry for pattern-based routes
-#[derive(Clone, Debug, Default, SerBin, DeBin, SerRon, DeRon)]
+#[derive(Clone, Debug, Default)]
 pub struct RouteRegistry {
     /// Routes by LiveId (for exact matches)
     by_id: HashMap<LiveId, RouteEntry>,
     /// Routes by pattern (for path-based matching)
     by_pattern: Vec<RouteEntry>,
+    /// Exact lookup for fully-static patterns (normalized path -> route_id).
+    exact_static: HashMap<String, LiveId>,
+    /// Candidate pattern indices keyed by first static segment.
+    by_first_segment: HashMap<String, Vec<usize>>,
+    /// Candidate pattern indices for patterns without a static first segment.
+    fallback_first_segment: Vec<usize>,
 }
 
 impl RouteRegistry {
@@ -25,6 +34,9 @@ impl RouteRegistry {
         Self {
             by_id: HashMap::new(),
             by_pattern: Vec::new(),
+            exact_static: HashMap::new(),
+            by_first_segment: HashMap::new(),
+            fallback_first_segment: Vec::new(),
         }
     }
 
@@ -56,18 +68,37 @@ impl RouteRegistry {
             .position(|e| e.priority > priority)
             .unwrap_or(self.by_pattern.len());
         self.by_pattern.insert(pos, entry);
+        self.rebuild_indices();
         Ok(())
     }
 
     /// Resolve a path to a route
     pub fn resolve_path(&self, path: &str) -> Option<Route> {
-        // First try exact LiveId match if path is a single identifier
-        // For now, we'll skip this and go straight to pattern matching
-        
-        // Try pattern matching
-        for entry in &self.by_pattern {
-            if let Some(ref pattern) = entry.pattern {
-                if let Some(params) = pattern.matches(path) {
+        let normalized = Self::normalize_path(path);
+
+        if let Some(route_id) = self.exact_static.get(&normalized).copied() {
+            let pattern = self.by_id.get(&route_id).and_then(|e| e.pattern.clone());
+            return Some(Route {
+                id: route_id,
+                params: Default::default(),
+                query: Default::default(),
+                hash: String::new(),
+                pattern,
+            });
+        }
+
+        let first = normalized
+            .trim_start_matches('/')
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        if let Some(candidates) = self.by_first_segment.get(&first) {
+            for &idx in candidates {
+                let entry = self.by_pattern.get(idx)?;
+                let Some(ref pattern) = entry.pattern else { continue };
+                if let Some(params) = pattern.matches(&normalized) {
                     return Some(Route {
                         id: entry.route_id,
                         params,
@@ -78,7 +109,21 @@ impl RouteRegistry {
                 }
             }
         }
-        
+
+        for &idx in &self.fallback_first_segment {
+            let entry = self.by_pattern.get(idx)?;
+            let Some(ref pattern) = entry.pattern else { continue };
+            if let Some(params) = pattern.matches(&normalized) {
+                return Some(Route {
+                    id: entry.route_id,
+                    params,
+                    query: Default::default(),
+                    hash: String::new(),
+                    pattern: Some(pattern.clone()),
+                });
+            }
+        }
+
         None
     }
 
@@ -89,9 +134,156 @@ impl RouteRegistry {
 
     /// Get pattern for a route ID
     pub fn get_pattern(&self, route_id: LiveId) -> Option<&RoutePattern> {
-        self.by_pattern.iter()
-            .find(|e| e.route_id == route_id)
-            .and_then(|e| e.pattern.as_ref())
+        self.by_id.get(&route_id).and_then(|e| e.pattern.as_ref())
+    }
+
+    fn normalize_path(path: &str) -> String {
+        let mut p = path.trim().to_string();
+        if p.is_empty() {
+            return "/".to_string();
+        }
+        // Accept full URLs too (same behavior as RouterUrl::parse).
+        if let Some((_, after_scheme)) = p.split_once("://") {
+            let mut rest = after_scheme;
+            if let Some((_, after_host_slash)) = rest.split_once('/') {
+                rest = after_host_slash;
+                p = format!("/{}", rest);
+            } else {
+                p = "/".to_string();
+            }
+        }
+        if !p.starts_with('/') {
+            p.insert(0, '/');
+        }
+        // Strip query/hash for matching.
+        if let Some((before_hash, _)) = p.split_once('#') {
+            p = before_hash.to_string();
+        }
+        if let Some((before_q, _)) = p.split_once('?') {
+            p = before_q.to_string();
+        }
+        // Collapse trailing slashes.
+        while p.len() > 1 && p.ends_with('/') {
+            p.pop();
+        }
+        p
+    }
+
+    fn rebuild_indices(&mut self) {
+        self.exact_static.clear();
+        self.by_first_segment.clear();
+        self.fallback_first_segment.clear();
+
+        for (idx, entry) in self.by_pattern.iter().enumerate() {
+            let Some(pattern) = entry.pattern.as_ref() else {
+                continue;
+            };
+
+            // Build exact static lookup.
+            if pattern
+                .segments
+                .iter()
+                .all(|s| matches!(s, RouteSegment::Static(_)))
+            {
+                let path = format!(
+                    "/{}",
+                    pattern
+                        .segments
+                        .iter()
+                        .filter_map(|s| match s {
+                            RouteSegment::Static(v) => Some(v.as_str()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join("/")
+                );
+                self.exact_static.entry(path).or_insert(entry.route_id);
+            }
+
+            // Index by first segment (if static).
+            match pattern.segments.first() {
+                Some(RouteSegment::Static(first)) => {
+                    self.by_first_segment
+                        .entry(first.clone())
+                        .or_default()
+                        .push(idx);
+                }
+                _ => self.fallback_first_segment.push(idx),
+            }
+        }
+    }
+}
+
+impl SerBin for RouteRegistry {
+    fn ser_bin(&self, s: &mut Vec<u8>) {
+        self.by_id.ser_bin(s);
+        self.by_pattern.ser_bin(s);
+    }
+}
+
+impl DeBin for RouteRegistry {
+    fn de_bin(o: &mut usize, d: &[u8]) -> Result<Self, DeBinErr> {
+        let by_id = <HashMap<LiveId, RouteEntry>>::de_bin(o, d)?;
+        let by_pattern = <Vec<RouteEntry>>::de_bin(o, d)?;
+        let mut out = Self {
+            by_id,
+            by_pattern,
+            exact_static: HashMap::new(),
+            by_first_segment: HashMap::new(),
+            fallback_first_segment: Vec::new(),
+        };
+        out.rebuild_indices();
+        Ok(out)
+    }
+}
+
+impl SerRon for RouteRegistry {
+    fn ser_ron(&self, d: usize, s: &mut SerRonState) {
+        s.st_pre();
+        s.field(d + 1, "by_id");
+        self.by_id.ser_ron(d + 1, s);
+        s.conl();
+        s.field(d + 1, "by_pattern");
+        self.by_pattern.ser_ron(d + 1, s);
+        s.out.push('\n');
+        s.st_post(d);
+    }
+}
+
+impl DeRon for RouteRegistry {
+    fn de_ron(s: &mut DeRonState, i: &mut std::str::Chars) -> Result<Self, DeRonErr> {
+        s.paren_open(i)?;
+        let mut by_id: Option<HashMap<LiveId, RouteEntry>> = None;
+        let mut by_pattern: Option<Vec<RouteEntry>> = None;
+        loop {
+            match s.tok {
+                DeRonTok::ParenClose => {
+                    s.paren_close(i)?;
+                    break;
+                }
+                DeRonTok::Ident => {
+                    let key = s.identbuf.clone();
+                    s.ident(i)?;
+                    s.colon(i)?;
+                    match key.as_str() {
+                        "by_id" => by_id = Some(HashMap::<LiveId, RouteEntry>::de_ron(s, i)?),
+                        "by_pattern" => by_pattern = Some(Vec::<RouteEntry>::de_ron(s, i)?),
+                        _ => return Err(s.err_token("by_id or by_pattern")),
+                    }
+                    s.eat_comma_paren(i)?;
+                }
+                _ => return Err(s.err_token("Identifier or )")),
+            }
+        }
+        let mut out = Self {
+            by_id: by_id.unwrap_or_default(),
+            by_pattern: by_pattern.unwrap_or_default(),
+            exact_static: HashMap::new(),
+            by_first_segment: HashMap::new(),
+            fallback_first_segment: Vec::new(),
+        };
+        out.rebuild_indices();
+        Ok(out)
     }
 }
 

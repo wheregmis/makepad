@@ -4,7 +4,6 @@ use crate::{
         RouterNavKind, RouterRedirectTarget,
     },
     route::{Route, RouteQuery},
-    url::RouterUrl,
 };
 use makepad_widgets::*;
 
@@ -90,7 +89,7 @@ impl RouterWidget {
             }
             RouterNavRequest::NavigateByPath { path } | RouterNavRequest::ReplaceByPath { path, .. } => {
                 self.detect_child_routers(cx);
-                let parsed = RouterUrl::parse(path);
+                let parsed = self.parse_url_cached(path);
                 let query = RouteQuery::from_query_string(&parsed.query);
                 let hash = parsed.hash.clone();
                 let path = parsed.path;
@@ -144,7 +143,7 @@ impl RouterWidget {
                 }
             }
             RouterNavRequest::NavigateByUrl { url } | RouterNavRequest::ReplaceByUrl { url } => {
-                let parsed = RouterUrl::parse(url);
+                let parsed = self.parse_url_cached(url);
                 let query = RouteQuery::from_query_string(&parsed.query);
                 let hash = parsed.hash.clone();
                 to_url = Some(url.clone());
@@ -228,7 +227,7 @@ impl RouterWidget {
             }
             #[cfg(target_arch = "wasm32")]
             RouterNavRequest::BrowserUrlChanged { url, .. } => {
-                let parsed = RouterUrl::parse(url);
+                let parsed = self.parse_url_cached(url);
                 to_url = Some(url.clone());
                 to_path = Some(parsed.path.clone());
                 return self

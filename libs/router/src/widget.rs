@@ -23,6 +23,7 @@ mod nested;
 mod path_nav;
 mod route_widgets;
 mod transitions;
+mod url_cache;
 mod url_sync;
 
 use guard_flow::PendingNavigation;
@@ -216,6 +217,20 @@ pub struct RouterWidget {
     web_last_child_depth: Option<usize>,
     #[rust]
     web_last_child_parent_route: LiveId,
+    #[rust]
+    route_registry_epoch: u64,
+    #[rust]
+    nested_prefix_cache_epoch: u64,
+    #[rust]
+    nested_prefix_cache_path: String,
+    #[rust]
+    nested_prefix_cache_result: Option<(LiveId, crate::route::RouteParams, crate::route::RoutePattern, String)>,
+    #[rust]
+    url_parse_cache: Vec<(String, crate::url::RouterUrl)>,
+    #[rust]
+    pointer_cleanup_route: Option<LiveId>,
+    #[rust]
+    pointer_cleanup_budget: u8,
     #[rust(DrawList2d::new(cx))]
     from_draw_list: DrawList2d,
     #[rust(DrawList2d::new(cx))]
@@ -257,6 +272,10 @@ impl RouterWidget {
     ) -> Result<(), String> {
         self.router.register_route_pattern(pattern, route_id)?;
         self.route_patterns.insert(route_id, pattern.to_string());
+        self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
+        self.nested_prefix_cache_epoch = 0;
+        self.nested_prefix_cache_path.clear();
+        self.nested_prefix_cache_result = None;
         Ok(())
     }
 
@@ -423,7 +442,22 @@ impl Widget for RouterWidget {
             cx.group_widget_actions(uid, active_uid, |cx| active.handle_event(cx, event, scope));
         }
 
-        // Performance-first: only the active route receives events.
+        // Performance-first: only the active route receives events, except for a tiny grace window
+        // after navigation so the previous route can see `FingerUp`/hover-out and clear UI state.
+        if self.pointer_cleanup_budget > 0 {
+            if let Some(route_id) = self.pointer_cleanup_route {
+                if route_id != self.active_route {
+                    if let Some(prev) = self.route_widgets.get_mut(&route_id) {
+                        prev.handle_event(cx, event, scope);
+                    }
+                }
+            }
+            self.pointer_cleanup_budget = self.pointer_cleanup_budget.saturating_sub(1);
+            if self.pointer_cleanup_budget == 0 {
+                self.pointer_cleanup_budget = 0;
+                self.pointer_cleanup_route = None;
+            }
+        }
 
         // Nested routers have `url_sync` disabled; sync the full (composed) URL from here.
         self.poll_pending_navigation(cx);

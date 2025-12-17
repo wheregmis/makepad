@@ -1,7 +1,6 @@
 use crate::{
     route::{Route, RouteQuery},
     router::RouterAction,
-    url::RouterUrl,
 };
 use makepad_widgets::*;
 
@@ -14,7 +13,7 @@ impl RouterWidget {
         path: &str,
         clear_extras: bool,
     ) -> bool {
-        let parsed = RouterUrl::parse(path);
+        let parsed = self.parse_url_cached(path);
         let query = RouteQuery::from_query_string(&parsed.query);
         let hash = parsed.hash.clone();
         let path = parsed.path;
@@ -152,7 +151,7 @@ impl RouterWidget {
         path: &str,
         clear_extras: bool,
     ) -> bool {
-        let parsed = RouterUrl::parse(path);
+        let parsed = self.parse_url_cached(path);
         let query = RouteQuery::from_query_string(&parsed.query);
         let hash = parsed.hash.clone();
         let path = parsed.path;
@@ -273,4 +272,3 @@ impl RouterWidget {
         false
     }
 }
-

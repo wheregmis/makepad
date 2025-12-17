@@ -139,6 +139,11 @@ impl RouterWidget {
             return;
         }
 
+        // Ensure the previous route gets a few more input events (especially FingerUp) so widgets
+        // can release hover/pressed state even though we don't dispatch events to inactive routes.
+        self.pointer_cleanup_route = Some(from_route);
+        self.pointer_cleanup_budget = 8;
+
         let mut spec = override_spec
             .or_else(|| self.route_transition_spec(to_route))
             .unwrap_or_else(|| self.default_transition_spec(kind));

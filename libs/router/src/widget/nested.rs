@@ -4,9 +4,15 @@ use super::{RouterWidget, RouterWidgetWidgetRefExt};
 
 impl RouterWidget {
     pub(super) fn resolve_nested_prefix(
-        &self,
+        &mut self,
         path: &str,
     ) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
+        if self.nested_prefix_cache_epoch == self.route_registry_epoch
+            && self.nested_prefix_cache_path == path
+        {
+            return self.nested_prefix_cache_result.clone();
+        }
+
         let mut best: Option<(LiveId, RouteParams, RoutePattern, String, usize)> = None;
 
         // Support lazy route widget instantiation by using the static Live-scanned child router paths
@@ -27,7 +33,11 @@ impl RouterWidget {
             }
         }
 
-        best.map(|(id, params, pattern, tail, _prio)| (id, params, pattern, tail))
+        let out = best.map(|(id, params, pattern, tail, _prio)| (id, params, pattern, tail));
+        self.nested_prefix_cache_epoch = self.route_registry_epoch;
+        self.nested_prefix_cache_path = path.to_string();
+        self.nested_prefix_cache_result = out.clone();
+        out
     }
 
     pub(super) fn delegate_tail_to_child(

@@ -64,3 +64,13 @@ Currently covered:
 ## Performance Notes
 
 - `RouterWidget` now lazily instantiates only the active route widget and only the active route receives events.
+
+## Performance TODOs
+
+- [x] Replace params/query storage with `HashMap` for O(1) lookups.
+- [x] Optimize `NavigationHistory::pop_to` with a reverse index.
+- [x] Lazy route widget instantiation (only active route).
+- [x] Active-route-only event handling + active-widget fast paths.
+- [x] Optimize `RouteRegistry::resolve_path` with indices (exact static + first-segment buckets).
+- [x] URL parsing cache (small LRU or last-value cache).
+- [x] Nested routing cache for repeated prefix matches.

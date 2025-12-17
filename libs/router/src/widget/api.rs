@@ -1,9 +1,4 @@
-use crate::{
-    route::Route,
-    router::RouterAction,
-    state::RouterState,
-    url::RouterUrl,
-};
+use crate::{route::Route, router::RouterAction, state::RouterState};
 use makepad_widgets::*;
 
 use super::{RouterNavRequest, RouterWidget, RouterActionKind, RouterTransitionDirection, RouterTransitionSpec};
@@ -18,10 +13,8 @@ impl RouterWidget {
                 },
             );
         }
-        let parsed = RouterUrl::parse(url);
         self.ensure_web_history_initialized(cx);
-
-        let ok = self.navigate_by_path_internal(cx, &parsed.to_string(), false);
+        let ok = self.navigate_by_path_internal(cx, url, false);
 
         if ok {
             self.web_push_current_url(cx);
@@ -647,4 +640,3 @@ impl RouterWidget {
         ok
     }
 }
-
