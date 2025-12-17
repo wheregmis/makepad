@@ -3,6 +3,7 @@ pub use makepad_live_id;
 pub use makepad_micro_serde;
 pub use makepad_widgets;
 
+pub mod hero;
 pub mod navigation;
 pub mod route;
 pub mod router;

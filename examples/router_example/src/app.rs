@@ -48,6 +48,10 @@ live_design! {
                 text: "View User (Dynamic)"
             }
 
+            hero_btn = <Button> {
+                text: "Hero Demo"
+            }
+
             admin_btn = <Button> {
                 text: "Admin (Nested)"
             }
@@ -288,6 +292,77 @@ live_design! {
         }
     }
 
+    // Hero Demo: shared element transition
+    HeroListPage = <View> {
+        width: Fill, height: Fill
+        show_bg: true
+        draw_bg: { color: #x13202A }
+        flow: Down, spacing: 20, padding: 40
+
+        <Label> {
+            text: "Hero Demo"
+            draw_text: {
+                text_style: { font_size: 32 }
+                color: #xFFFFFF
+            }
+        }
+
+        <Label> {
+            text: "Tap the card to transition"
+            draw_text: {
+                text_style: { font_size: 16 }
+                color: #xAAAAAA
+            }
+        }
+
+        hero_card = <Hero> {
+            tag: hero_card
+            width: 96, height: 96
+            <View> {
+                width: Fill, height: Fill
+                show_bg: true
+                draw_bg: { color: #xFFB000 }
+            }
+        }
+
+        detail_btn = <Button> {
+            text: "Open Detail"
+        }
+
+        home_btn = <Button> {
+            text: "Back to Home"
+        }
+    }
+
+    HeroDetailPage = <View> {
+        width: Fill, height: Fill
+        show_bg: true
+        draw_bg: { color: #x0E1116 }
+        flow: Down, spacing: 20, padding: 40
+
+        <Label> {
+            text: "Hero Detail"
+            draw_text: {
+                text_style: { font_size: 32 }
+                color: #xFFFFFF
+            }
+        }
+
+        hero_card = <Hero> {
+            tag: hero_card
+            width: 280, height: 180
+            <View> {
+                width: Fill, height: Fill
+                show_bg: true
+                draw_bg: { color: #xFFB000 }
+            }
+        }
+
+        back_btn = <Button> {
+            text: "Back"
+        }
+    }
+
     // Main App
     App = {{App}} {
         ui: <Window> {
@@ -323,6 +398,10 @@ live_design! {
                         text: "About"
                     }
 
+                    hero_btn = <Button> {
+                        text: "Hero"
+                    }
+
                     broken_link_btn = <Button> {
                         text: "Broken Link (404)"
                     }
@@ -343,9 +422,16 @@ live_design! {
                     pop_transition: SlideRight
                     replace_transition: Fade
                     transition_duration: 0.30
+                    hero_transition: true
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
                     about = <AboutPage> {}
+                    hero_list = <HeroListPage> {
+                        route_pattern: "/hero"
+                    }
+                    hero_detail = <HeroDetailPage> {
+                        route_pattern: "/hero/detail"
+                    }
                     user_profile = <UserProfilePage> {
                         route_pattern: "/user/:id"
                     }
@@ -402,6 +488,10 @@ impl MatchEvent for App {
         if self.ui.button(ids!(nav_bar.about_btn)).clicked(&actions) {
             log!("ℹ️ Nav: About clicked");
             router.navigate(cx, live_id!(about));
+        }
+        if self.ui.button(ids!(nav_bar.hero_btn)).clicked(&actions) {
+            log!("🦸 Nav: Hero clicked");
+            router.navigate(cx, live_id!(hero_list));
         }
         if self.ui.button(ids!(nav_bar.broken_link_btn)).clicked(&actions) {
             log!("🚫 Nav: Broken link clicked");
@@ -506,6 +596,22 @@ impl MatchEvent for App {
         {
             log!("🏠→ℹ️ Home: About clicked");
             router.navigate(cx, live_id!(about));
+        }
+        if self.ui.button(ids!(router.home.hero_btn)).clicked(&actions) {
+            log!("🏠→🦸 Home: Hero clicked");
+            router.navigate(cx, live_id!(hero_list));
+        }
+        if self.ui.button(ids!(router.hero_list.detail_btn)).clicked(&actions) {
+            log!("🦸 Hero: Open Detail clicked");
+            router.navigate(cx, live_id!(hero_detail));
+        }
+        if self.ui.button(ids!(router.hero_list.home_btn)).clicked(&actions) {
+            log!("🦸→🏠 Hero: Home clicked");
+            router.navigate(cx, live_id!(home));
+        }
+        if self.ui.button(ids!(router.hero_detail.back_btn)).clicked(&actions) {
+            log!("🦸 Detail: Back clicked");
+            router.back(cx);
         }
         if self
             .ui

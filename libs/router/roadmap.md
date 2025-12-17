@@ -13,6 +13,7 @@
 - [x] Implement animated transitions inside `RouterWidget` (keep old+new alive during transition, then drop old).
 - [x] Built-in presets: `None`, `Fade`, `SlideLeft/Right`, `Scale`, `SharedAxis` with push/pop direction.
 - [x] Per-route and per-navigation overrides (e.g. push slides, replace fades).
+- [x] Shared element (“hero”) transitions via `<Hero tag: ...>` (opt-in with `hero_transition: true`).
 
 ### Phase 4: URL + Deep Linking (Web + Desktop optional)
 - [x] Parse + generate paths (including query + hash), synchronize with web history, and allow initial route from URL.
