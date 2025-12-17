@@ -45,8 +45,8 @@ Currently covered:
    - `widget/hero_render.rs` is already extracted.
    - `widget/api.rs` is already extracted (public `RouterWidget` methods).
    - `widget/path_nav.rs` is already extracted (path resolution + not-found handling).
+   - `widget/route_widgets.rs` is already extracted (route widget construction + metadata silencing).
    - Next candidates:
-      - `widget/route_widgets.rs` (route widget creation + metadata silencing)
       - `widget/live_apply.rs` (LiveHook apply plumbing + route template scanning)
 
 2. **Reduce cross-module coupling**
