@@ -39,8 +39,8 @@ Currently covered:
 1. **Split `widget.rs` further**
    - `widget/inspector.rs` is already extracted.
    - `widget/transitions.rs` and `widget/url_sync.rs` are already extracted.
+   - `widget/nested.rs` is already extracted.
    - Next candidates:
-     - `widget/nested.rs` (nested routing delegation + not-found logic)
      - `widget/guards.rs` (guard/before-leave execution and pending state)
      - `widget/hero.rs` (hero pairing + shared element transition driving)
 
