@@ -165,6 +165,14 @@ pub struct RouterWidget {
     suppress_browser_update: bool,
     #[rust]
     ignore_next_browser_url_change: bool,
+    #[rust]
+    web_last_synced_url: Option<String>,
+    #[rust]
+    web_last_depth: usize,
+    #[rust]
+    web_last_child_depth: Option<usize>,
+    #[rust]
+    web_last_child_parent_route: LiveId,
     #[rust(DrawList2d::new(cx))]
     from_draw_list: DrawList2d,
     #[rust(DrawList2d::new(cx))]
@@ -525,7 +533,21 @@ impl RouterWidget {
         if !self.suppress_browser_update {
             let url = self.current_url();
             CxOsApi::set_browser_url(cx, &url, true, self.web_history_index as f64);
+            self.web_mark_synced(cx);
         }
+    }
+
+    fn web_active_child_depth(&mut self, cx: &mut Cx) -> Option<usize> {
+        self.detect_child_routers(cx);
+        let child = self.child_routers.get(&self.active_route)?.borrow()?;
+        Some(child.router.depth())
+    }
+
+    fn web_mark_synced(&mut self, cx: &mut Cx) {
+        self.web_last_synced_url = Some(self.current_url());
+        self.web_last_depth = self.router.depth();
+        self.web_last_child_depth = self.web_active_child_depth(cx);
+        self.web_last_child_parent_route = self.active_route;
     }
 
     fn web_push_current_url(&mut self, cx: &mut Cx) {
@@ -539,6 +561,7 @@ impl RouterWidget {
         }
         let url = self.current_url();
         CxOsApi::set_browser_url(cx, &url, false, self.web_history_index as f64);
+        self.web_mark_synced(cx);
     }
 
     fn web_replace_current_url(&mut self, cx: &mut Cx) {
@@ -551,6 +574,7 @@ impl RouterWidget {
         }
         let url = self.current_url();
         CxOsApi::set_browser_url(cx, &url, true, self.web_history_index as f64);
+        self.web_mark_synced(cx);
     }
 
     fn web_go(&mut self, cx: &mut Cx, delta: i32) {
@@ -570,6 +594,53 @@ impl RouterWidget {
         }
         self.ignore_next_browser_url_change = true;
         CxOsApi::browser_history_go(cx, delta);
+        self.web_mark_synced(cx);
+    }
+
+    fn sync_web_url_if_needed(&mut self, cx: &mut Cx) {
+        if !self.web_enabled(cx) || self.suppress_browser_update {
+            return;
+        }
+        self.ensure_web_history_initialized(cx);
+
+        let current_url = self.current_url();
+        let Some(last_url) = self.web_last_synced_url.clone() else {
+            self.web_mark_synced(cx);
+            return;
+        };
+
+        if current_url == last_url {
+            self.web_mark_synced(cx);
+            return;
+        }
+
+        let current_depth = self.router.depth();
+        let last_depth = self.web_last_depth;
+        if current_depth != last_depth {
+            if current_depth > last_depth {
+                self.web_push_current_url(cx);
+            } else {
+                self.web_replace_current_url(cx);
+            }
+            return;
+        }
+
+        if self.web_last_child_parent_route == self.active_route {
+            let current_child_depth = self.web_active_child_depth(cx);
+            if let (Some(prev), Some(now)) = (self.web_last_child_depth, current_child_depth) {
+                if prev != now {
+                    let delta = now as i32 - prev as i32;
+                    if delta > 0 {
+                        self.web_push_current_url(cx);
+                    } else {
+                        self.web_go(cx, delta);
+                    }
+                    return;
+                }
+            }
+        }
+
+        self.web_replace_current_url(cx);
     }
 
     fn join_paths(base: &str, tail: &str) -> String {
@@ -692,6 +763,7 @@ impl RouterWidget {
         self.url_query = parsed.query;
         self.url_hash = parsed.hash;
         self.suppress_browser_update = false;
+        self.web_mark_synced(cx);
         self.redraw(cx);
     }
 
@@ -1983,6 +2055,9 @@ impl Widget for RouterWidget {
                 widget.handle_event(cx, event, scope);
             }
         }
+
+        // Nested routers have `url_sync` disabled; sync the full (composed) URL from here.
+        self.sync_web_url_if_needed(cx);
     }
 
     fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
