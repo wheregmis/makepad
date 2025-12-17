@@ -7,19 +7,19 @@ use super::{RouterTransitionDirection, RouterTransitionPreset, RouterWidget};
 impl RouterWidget {
     pub(super) fn draw_routes_with_hero(&mut self, cx: &mut Cx2d, scope: &mut Scope, rect: Rect) {
         let router_uid = self.widget_uid();
-        let hero_enabled = self.hero_transition && self.transition.is_some();
+        let hero_enabled = self.hero_transition && self.transition_rt.state.is_some();
 
         if hero_enabled {
             cx.global::<HeroGlobals>().push_router(router_uid);
         }
 
-        if let Some(state_snapshot) = self.transition.clone() {
+        if let Some(state_snapshot) = self.transition_rt.state.clone() {
             if hero_enabled && !state_snapshot.hero.capture_done {
                 cx.global::<HeroGlobals>().clear_capture();
                 cx.global::<HeroGlobals>().set_hide_tags(&[]);
 
-                self.hero_capture_draw_list.begin_always(cx);
-                let draw_list_id = self.hero_capture_draw_list.id();
+                self.draw_lists.hero_capture.begin_always(cx);
+                let draw_list_id = self.draw_lists.hero_capture.id();
                 {
                     let dl = &mut cx.cx.cx.draw_lists[draw_list_id];
                     dl.draw_list_uniforms.view_shift = vec2(0.0, 0.0);
@@ -38,16 +38,16 @@ impl RouterWidget {
                 }
 
                 cx.global::<HeroGlobals>().set_phase(HeroPhase::Idle);
-                self.hero_capture_draw_list.end(cx);
+                self.draw_lists.hero_capture.end(cx);
 
                 let hero_pairs = cx.global::<HeroGlobals>().take_pairs();
-                if let Some(state) = self.transition.as_mut() {
+                if let Some(state) = self.transition_rt.state.as_mut() {
                     state.hero.pairs = hero_pairs;
                     state.hero.capture_done = true;
                 }
             }
 
-            let state = self.transition.clone().unwrap_or(state_snapshot);
+            let state = self.transition_rt.state.clone().unwrap_or(state_snapshot);
 
             let hide_tags: Vec<LiveId> = state.hero.pairs.iter().map(|p| p.tag).collect();
             let has_hero_pairs = hero_enabled && !hide_tags.is_empty();
@@ -70,7 +70,7 @@ impl RouterWidget {
             Self::draw_route_into_draw_list(
                 cx,
                 scope,
-                &mut self.from_draw_list,
+                &mut self.draw_lists.from,
                 &mut self.route_widgets,
                 state.from_route,
                 from_effect,
@@ -88,7 +88,7 @@ impl RouterWidget {
             Self::draw_route_into_draw_list(
                 cx,
                 scope,
-                &mut self.to_draw_list,
+                &mut self.draw_lists.to,
                 &mut self.route_widgets,
                 state.to_route,
                 to_effect,
@@ -110,8 +110,8 @@ impl RouterWidget {
                     size: dvec2(lerp(a.size.x, b.size.x), lerp(a.size.y, b.size.y)),
                 };
 
-                self.hero_from_draw_list.begin_always(cx);
-                let draw_list_id = self.hero_from_draw_list.id();
+                self.draw_lists.hero_from.begin_always(cx);
+                let draw_list_id = self.draw_lists.hero_from.id();
                 {
                     let dl = &mut cx.cx.cx.draw_lists[draw_list_id];
                     dl.draw_list_uniforms.view_shift = vec2(0.0, 0.0);
@@ -123,10 +123,10 @@ impl RouterWidget {
                     let hero = self.uid_to_widget(pair.from_uid);
                     let _ = hero.draw_walk(cx, scope, Walk::abs_rect(r));
                 }
-                self.hero_from_draw_list.end(cx);
+                self.draw_lists.hero_from.end(cx);
 
-                self.hero_to_draw_list.begin_always(cx);
-                let draw_list_id = self.hero_to_draw_list.id();
+                self.draw_lists.hero_to.begin_always(cx);
+                let draw_list_id = self.draw_lists.hero_to.id();
                 {
                     let dl = &mut cx.cx.cx.draw_lists[draw_list_id];
                     dl.draw_list_uniforms.view_shift = vec2(0.0, 0.0);
@@ -138,7 +138,7 @@ impl RouterWidget {
                     let hero = self.uid_to_widget(pair.to_uid);
                     let _ = hero.draw_walk(cx, scope, Walk::abs_rect(r));
                 }
-                self.hero_to_draw_list.end(cx);
+                self.draw_lists.hero_to.end(cx);
 
                 cx.global::<HeroGlobals>().set_phase(HeroPhase::Idle);
             } else if hero_enabled {
@@ -155,7 +155,7 @@ impl RouterWidget {
             Self::draw_route_into_draw_list(
                 cx,
                 scope,
-                &mut self.to_draw_list,
+                &mut self.draw_lists.to,
                 &mut self.route_widgets,
                 self.active_route,
                 effect,

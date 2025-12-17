@@ -21,7 +21,7 @@ impl RouterWidget {
         if clear_extras {
             self.clear_url_extras();
         } else {
-            self.url_path_override = None;
+            self.web.url_path_override = None;
         }
 
         // 1) Full match in this router.
@@ -109,7 +109,7 @@ impl RouterWidget {
             // Push not-found so the user can navigate back to the previous page.
             // Preserve the attempted path in the address bar.
             if self.current_route_id() != Some(self.not_found_route) {
-                self.url_path_override = Some(path);
+                self.web.url_path_override = Some(path);
                 let old_route = self.router.current_route().cloned();
                 let mut nf = Route::new(self.not_found_route);
                 nf.query = query;
@@ -159,7 +159,7 @@ impl RouterWidget {
         if clear_extras {
             self.clear_url_extras();
         } else {
-            self.url_path_override = None;
+            self.web.url_path_override = None;
         }
 
         if let Some(mut route) = self.router.route_registry.resolve_path(&path) {
@@ -239,7 +239,7 @@ impl RouterWidget {
         }
 
         if self.not_found_route.0 != 0 && self.route_templates.contains_key(&self.not_found_route) {
-            self.url_path_override = Some(path);
+            self.web.url_path_override = Some(path);
             let old_route = self.router.current_route().cloned();
             let mut nf = Route::new(self.not_found_route);
             nf.query = query;

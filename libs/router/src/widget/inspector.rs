@@ -43,7 +43,7 @@ impl RouterWidget {
         out.push(fmt_tail_stack(&self.router.history, 4));
         out.push(format!("url: {}", self.current_url()));
 
-        if let Some(t) = &self.transition {
+        if let Some(t) = &self.transition_rt.state {
             out.push(format!(
                 "transition: {:?} {:.0}%",
                 t.preset,
@@ -78,7 +78,7 @@ impl RouterWidget {
         if !self.debug_inspector {
             return;
         }
-        self.inspector_draw_list.begin_always(cx);
+        self.draw_lists.inspector.begin_always(cx);
 
         // Ensure overlay draws above the routed content (ortho z-range is [-100..100]).
         self.inspector_bg.draw_depth = 10.0;
@@ -95,7 +95,7 @@ impl RouterWidget {
             .min((rect.size.y - margin * 2.0).max(0.0));
 
         if width <= 0.0 || height <= 0.0 {
-            self.inspector_draw_list.end(cx);
+            self.draw_lists.inspector.end(cx);
             return;
         }
 
@@ -116,6 +116,6 @@ impl RouterWidget {
             }
         }
 
-        self.inspector_draw_list.end(cx);
+        self.draw_lists.inspector.end(cx);
     }
 }

@@ -14,6 +14,7 @@ pub use crate::hero::Hero;
 
 mod api;
 mod actions;
+mod fields;
 mod guard_flow;
 mod hero;
 mod hero_render;
@@ -21,12 +22,14 @@ mod inspector;
 mod live_apply;
 mod nested;
 mod path_nav;
+mod persistence;
 mod route_widgets;
 mod transitions;
 mod url_cache;
 mod url_sync;
 
 use guard_flow::PendingNavigation;
+use fields::{PointerCleanup, RouterCaches, RouterDrawLists, TransitionRuntime, WebUrlState};
 use transitions::{RouterActionKind, RouterTransitionDirection, RouterTransitionState};
 pub use transitions::{RouterTransitionPreset, RouterTransitionSpec};
 
@@ -200,57 +203,19 @@ pub struct RouterWidget {
     #[rust]
     pending_actions: Vec<RouterAction>,
     #[rust]
-    url_path_override: Option<String>,
+    web: WebUrlState,
     #[rust]
-    web_history_index: i32,
+    caches: RouterCaches,
     #[rust]
-    web_history_initialized: bool,
-    #[rust]
-    suppress_browser_update: bool,
-    #[rust]
-    ignore_next_browser_url_change: bool,
-    #[rust]
-    web_last_synced_url: Option<String>,
-    #[rust]
-    web_last_depth: usize,
-    #[rust]
-    web_last_child_depth: Option<usize>,
-    #[rust]
-    web_last_child_parent_route: LiveId,
-    #[rust]
-    route_registry_epoch: u64,
-    #[rust]
-    nested_prefix_cache_epoch: u64,
-    #[rust]
-    nested_prefix_cache_path: String,
-    #[rust]
-    nested_prefix_cache_result: Option<(LiveId, crate::route::RouteParams, crate::route::RoutePattern, String)>,
-    #[rust]
-    url_parse_cache: Vec<(String, crate::url::RouterUrl)>,
-    #[rust]
-    pointer_cleanup_route: Option<LiveId>,
-    #[rust]
-    pointer_cleanup_budget: u8,
-    #[rust(DrawList2d::new(cx))]
-    from_draw_list: DrawList2d,
-    #[rust(DrawList2d::new(cx))]
-    to_draw_list: DrawList2d,
-    #[rust(DrawList2d::new(cx))]
-    hero_capture_draw_list: DrawList2d,
-    #[rust(DrawList2d::new(cx))]
-    hero_from_draw_list: DrawList2d,
-    #[rust(DrawList2d::new(cx))]
-    hero_to_draw_list: DrawList2d,
-    #[rust(DrawList2d::new(cx))]
-    inspector_draw_list: DrawList2d,
+    pointer_cleanup: PointerCleanup,
+    #[rust(RouterDrawLists::new(cx))]
+    draw_lists: RouterDrawLists,
     #[live]
     inspector_bg: DrawInspectorRect,
     #[live]
     inspector_text: DrawText,
     #[rust]
-    transition: Option<RouterTransitionState>,
-    #[rust]
-    transition_next_frame: NextFrame,
+    transition_rt: TransitionRuntime,
 }
 
 impl RouterWidget {
@@ -259,7 +224,7 @@ impl RouterWidget {
         if let Some(mut inner) = child.borrow_mut() {
             inner.url_sync = false;
             inner.use_initial_url = false;
-            inner.web_history_initialized = false;
+            inner.web.history_initialized = false;
         }
         self.child_routers.insert(route_id, child);
     }
@@ -272,10 +237,10 @@ impl RouterWidget {
     ) -> Result<(), String> {
         self.router.register_route_pattern(pattern, route_id)?;
         self.route_patterns.insert(route_id, pattern.to_string());
-        self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
-        self.nested_prefix_cache_epoch = 0;
-        self.nested_prefix_cache_path.clear();
-        self.nested_prefix_cache_result = None;
+        self.caches.route_registry_epoch = self.caches.route_registry_epoch.wrapping_add(1);
+        self.caches.nested_prefix_cache_epoch = 0;
+        self.caches.nested_prefix_cache_path.clear();
+        self.caches.nested_prefix_cache_result = None;
         Ok(())
     }
 
@@ -333,9 +298,9 @@ impl WidgetNode for RouterWidget {
     }
 
     fn redraw(&mut self, cx: &mut Cx) {
-        self.from_draw_list.redraw(cx);
-        self.to_draw_list.redraw(cx);
-        self.inspector_draw_list.redraw(cx);
+        self.draw_lists.from.redraw(cx);
+        self.draw_lists.to.redraw(cx);
+        self.draw_lists.inspector.redraw(cx);
         self.area.redraw(cx);
     }
 
@@ -430,7 +395,7 @@ impl Widget for RouterWidget {
             }
         }
 
-        if let Some(ne) = self.transition_next_frame.is_event(event) {
+        if let Some(ne) = self.transition_rt.next_frame.is_event(event) {
             self.update_transition(cx, ne.time);
         }
         self.flush_router_actions(cx, scope);
@@ -444,18 +409,18 @@ impl Widget for RouterWidget {
 
         // Performance-first: only the active route receives events, except for a tiny grace window
         // after navigation so the previous route can see `FingerUp`/hover-out and clear UI state.
-        if self.pointer_cleanup_budget > 0 {
-            if let Some(route_id) = self.pointer_cleanup_route {
+        if self.pointer_cleanup.budget > 0 {
+            if let Some(route_id) = self.pointer_cleanup.route {
                 if route_id != self.active_route {
                     if let Some(prev) = self.route_widgets.get_mut(&route_id) {
                         prev.handle_event(cx, event, scope);
                     }
                 }
             }
-            self.pointer_cleanup_budget = self.pointer_cleanup_budget.saturating_sub(1);
-            if self.pointer_cleanup_budget == 0 {
-                self.pointer_cleanup_budget = 0;
-                self.pointer_cleanup_route = None;
+            self.pointer_cleanup.budget = self.pointer_cleanup.budget.saturating_sub(1);
+            if self.pointer_cleanup.budget == 0 {
+                self.pointer_cleanup.budget = 0;
+                self.pointer_cleanup.route = None;
             }
         }
 

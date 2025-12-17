@@ -11,7 +11,6 @@ The goal of this document is to keep future changes incremental and safe, with t
 
 - Keep pure logic isolated (testable without a `Cx`/GPU).
 - Keep `RouterWidget` readable by pushing feature-specific code into submodules.
-- Avoid API breakage: prefer internal refactors and additive APIs.
 
 ## Testing Strategy
 
@@ -48,8 +47,9 @@ Currently covered:
    - `widget/route_widgets.rs` is already extracted (route widget construction + metadata silencing).
    - `widget/live_apply.rs` is already extracted (LiveHook apply plumbing + route template scanning).
    - `widget/actions.rs` is already extracted (action queue + emission plumbing).
+   - `widget/fields.rs` is already extracted (group RouterWidget state into sub-structs).
    - Next candidates:
-      - `widget/fields.rs` (group RouterWidget fields into sub-structs)
+      - `widget/persistence.rs` (state save/restore helpers, web-only bits isolated)
       
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.

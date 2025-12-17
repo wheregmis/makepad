@@ -4,7 +4,7 @@ use super::{RouterNavRequest, RouterWidget};
 
 impl RouterWidget {
     pub(super) fn clear_url_extras(&mut self) {
-        self.url_path_override = None;
+        self.web.url_path_override = None;
     }
 
     fn web_enabled(&self, cx: &Cx) -> bool {
@@ -12,16 +12,16 @@ impl RouterWidget {
     }
 
     pub(super) fn ensure_web_history_initialized(&mut self, cx: &mut Cx) {
-        if !self.web_enabled(cx) || self.web_history_initialized {
+        if !self.web_enabled(cx) || self.web.history_initialized {
             return;
         }
-        self.web_history_initialized = true;
-        self.web_history_index = 0;
+        self.web.history_initialized = true;
+        self.web.history_index = 0;
 
         // Stamp an initial history state so `popstate` can report an index.
-        if !self.suppress_browser_update {
+        if !self.web.suppress_browser_update {
             let url = self.current_url();
-            CxOsApi::set_browser_url(cx, &url, true, self.web_history_index as f64);
+            CxOsApi::set_browser_url(cx, &url, true, self.web.history_index as f64);
             self.web_mark_synced(cx);
         }
     }
@@ -33,10 +33,10 @@ impl RouterWidget {
     }
 
     fn web_mark_synced(&mut self, cx: &mut Cx) {
-        self.web_last_synced_url = Some(self.current_url());
-        self.web_last_depth = self.router.depth();
-        self.web_last_child_depth = self.web_active_child_depth(cx);
-        self.web_last_child_parent_route = self.active_route;
+        self.web.last_synced_url = Some(self.current_url());
+        self.web.last_depth = self.router.depth();
+        self.web.last_child_depth = self.web_active_child_depth(cx);
+        self.web.last_child_parent_route = self.active_route;
     }
 
     pub(super) fn web_push_current_url(&mut self, cx: &mut Cx) {
@@ -44,12 +44,12 @@ impl RouterWidget {
             return;
         }
         self.ensure_web_history_initialized(cx);
-        self.web_history_index = self.web_history_index.saturating_add(1);
-        if self.suppress_browser_update {
+        self.web.history_index = self.web.history_index.saturating_add(1);
+        if self.web.suppress_browser_update {
             return;
         }
         let url = self.current_url();
-        CxOsApi::set_browser_url(cx, &url, false, self.web_history_index as f64);
+        CxOsApi::set_browser_url(cx, &url, false, self.web.history_index as f64);
         self.web_mark_synced(cx);
     }
 
@@ -58,11 +58,11 @@ impl RouterWidget {
             return;
         }
         self.ensure_web_history_initialized(cx);
-        if self.suppress_browser_update {
+        if self.web.suppress_browser_update {
             return;
         }
         let url = self.current_url();
-        CxOsApi::set_browser_url(cx, &url, true, self.web_history_index as f64);
+        CxOsApi::set_browser_url(cx, &url, true, self.web.history_index as f64);
         self.web_mark_synced(cx);
     }
 
@@ -73,27 +73,27 @@ impl RouterWidget {
         self.ensure_web_history_initialized(cx);
 
         if delta < 0 {
-            self.web_history_index = self.web_history_index.saturating_sub((-delta) as i32);
+            self.web.history_index = self.web.history_index.saturating_sub((-delta) as i32);
         } else {
-            self.web_history_index = self.web_history_index.saturating_add(delta as i32);
+            self.web.history_index = self.web.history_index.saturating_add(delta as i32);
         }
 
-        if self.suppress_browser_update {
+        if self.web.suppress_browser_update {
             return;
         }
-        self.ignore_next_browser_url_change = true;
+        self.web.ignore_next_browser_url_change = true;
         CxOsApi::browser_history_go(cx, delta);
         self.web_mark_synced(cx);
     }
 
     pub(super) fn sync_web_url_if_needed(&mut self, cx: &mut Cx) {
-        if !self.web_enabled(cx) || self.suppress_browser_update {
+        if !self.web_enabled(cx) || self.web.suppress_browser_update {
             return;
         }
         self.ensure_web_history_initialized(cx);
 
         let current_url = self.current_url();
-        let Some(last_url) = self.web_last_synced_url.clone() else {
+        let Some(last_url) = self.web.last_synced_url.clone() else {
             self.web_mark_synced(cx);
             return;
         };
@@ -104,7 +104,7 @@ impl RouterWidget {
         }
 
         let current_depth = self.router.depth();
-        let last_depth = self.web_last_depth;
+        let last_depth = self.web.last_depth;
         if current_depth != last_depth {
             if current_depth > last_depth {
                 self.web_push_current_url(cx);
@@ -114,9 +114,9 @@ impl RouterWidget {
             return;
         }
 
-        if self.web_last_child_parent_route == self.active_route {
+        if self.web.last_child_parent_route == self.active_route {
             let current_child_depth = self.web_active_child_depth(cx);
-            if let (Some(prev), Some(now)) = (self.web_last_child_depth, current_child_depth) {
+            if let (Some(prev), Some(now)) = (self.web.last_child_depth, current_child_depth) {
                 if prev != now {
                     let delta = now as i32 - prev as i32;
                     if delta > 0 {
@@ -158,7 +158,7 @@ impl RouterWidget {
     fn current_path_for_route(&self, route: &crate::route::Route) -> String {
         // Keep unknown path in the address bar while showing the configured not-found route.
         if self.not_found_route.0 != 0 && route.id == self.not_found_route {
-            if let Some(path) = &self.url_path_override {
+            if let Some(path) = &self.web.url_path_override {
                 let mut p = path.trim().to_string();
                 if p.is_empty() {
                     p = "/".to_string();
@@ -217,7 +217,7 @@ impl RouterWidget {
     }
 
     pub(super) fn apply_initial_url_if_needed(&mut self, cx: &mut Cx) {
-        if !self.web_enabled(cx) || !self.use_initial_url || self.web_history_initialized {
+        if !self.web_enabled(cx) || !self.use_initial_url || self.web.history_initialized {
             return;
         }
         let OsType::Web(params) = cx.os_type() else {
@@ -225,7 +225,7 @@ impl RouterWidget {
         };
         let browser_url = format!("{}{}{}", &params.pathname, &params.search, &params.hash);
 
-        self.suppress_browser_update = true;
+        self.web.suppress_browser_update = true;
         let _ = self.request_navigation_internal(
             cx,
             RouterNavRequest::ReplaceByUrl {
@@ -234,10 +234,10 @@ impl RouterWidget {
             true,
             0,
         );
-        self.suppress_browser_update = false;
+        self.web.suppress_browser_update = false;
 
-        self.web_history_initialized = true;
-        self.web_history_index = 0;
+        self.web.history_initialized = true;
+        self.web.history_index = 0;
         if self.pending_navigation.is_none() {
             self.web_replace_current_url(cx);
         }
@@ -256,7 +256,7 @@ impl RouterWidget {
                 0,
             );
             if !ok {
-                self.ignore_next_browser_url_change = true;
+                self.web.ignore_next_browser_url_change = true;
                 self.web_replace_current_url(cx);
             }
             return;
@@ -265,21 +265,21 @@ impl RouterWidget {
         if !self.web_enabled(cx) {
             return;
         }
-        if self.ignore_next_browser_url_change {
-            self.ignore_next_browser_url_change = false;
+        if self.web.ignore_next_browser_url_change {
+            self.web.ignore_next_browser_url_change = false;
             return;
         }
 
         if state_index >= 0 {
-            self.web_history_initialized = true;
-            self.web_history_index = state_index;
+            self.web.history_initialized = true;
+            self.web.history_index = state_index;
         } else {
             self.ensure_web_history_initialized(cx);
         }
 
-        self.suppress_browser_update = true;
+        self.web.suppress_browser_update = true;
         let _ = self.replace_by_path_internal(cx, url, false);
-        self.suppress_browser_update = false;
+        self.web.suppress_browser_update = false;
         self.web_mark_synced(cx);
         self.redraw(cx);
     }

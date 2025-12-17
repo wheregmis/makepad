@@ -13,11 +13,11 @@ impl LiveHook for RouterWidget {
         _nodes: &[LiveNode],
     ) {
         if let ApplyFrom::UpdateFromDoc { .. } = apply.from {
-            self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
-            self.nested_prefix_cache_epoch = 0;
-            self.nested_prefix_cache_path.clear();
-            self.nested_prefix_cache_result = None;
-            self.url_parse_cache.clear();
+            self.caches.route_registry_epoch = self.caches.route_registry_epoch.wrapping_add(1);
+            self.caches.nested_prefix_cache_epoch = 0;
+            self.caches.nested_prefix_cache_path.clear();
+            self.caches.nested_prefix_cache_result = None;
+            self.caches.url_parse_cache.clear();
             self.route_templates.clear();
             self.route_patterns.clear();
             self.route_transition_overrides.clear();
@@ -25,7 +25,7 @@ impl LiveHook for RouterWidget {
             self.child_router_paths.clear();
             self.child_routers.clear();
             self.router.route_registry = RouteRegistry::default();
-            self.transition = None;
+            self.transition_rt.state = None;
         }
     }
 
@@ -87,7 +87,8 @@ impl LiveHook for RouterWidget {
                             if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
                                 log!("Failed to register route pattern {}: {}", pattern_str, e);
                             } else {
-                                self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
+                                self.caches.route_registry_epoch =
+                                    self.caches.route_registry_epoch.wrapping_add(1);
                             }
                         } else if let LiveValue::String(pattern) = &pattern_node.value {
                             let pattern_str = pattern.as_str().to_string();
@@ -95,7 +96,8 @@ impl LiveHook for RouterWidget {
                             if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
                                 log!("Failed to register route pattern {}: {}", pattern_str, e);
                             } else {
-                                self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
+                                self.caches.route_registry_epoch =
+                                    self.caches.route_registry_epoch.wrapping_add(1);
                             }
                         }
                     }
@@ -136,7 +138,7 @@ impl LiveHook for RouterWidget {
                     // Scan for nested RouterWidget instances inside this route.
                     self.child_router_paths
                         .insert(id, Self::collect_child_router_paths(index, nodes));
-                    self.route_registry_epoch = self.route_registry_epoch.wrapping_add(1);
+                    self.caches.route_registry_epoch = self.caches.route_registry_epoch.wrapping_add(1);
 
                     // Create/update the route widget instance only if it already exists
                     // (e.g. after navigation / hot reload). Otherwise it will be lazily created.

@@ -131,25 +131,25 @@ impl RouterWidget {
         override_spec: Option<RouterTransitionSpec>,
     ) {
         let Some(from_route) = from_route else {
-            self.transition = None;
+            self.transition_rt.state = None;
             return;
         };
         if from_route == to_route {
-            self.transition = None;
+            self.transition_rt.state = None;
             return;
         }
 
         // Ensure the previous route gets a few more input events (especially FingerUp) so widgets
         // can release hover/pressed state even though we don't dispatch events to inactive routes.
-        self.pointer_cleanup_route = Some(from_route);
-        self.pointer_cleanup_budget = 8;
+        self.pointer_cleanup.route = Some(from_route);
+        self.pointer_cleanup.budget = 8;
 
         let mut spec = override_spec
             .or_else(|| self.route_transition_spec(to_route))
             .unwrap_or_else(|| self.default_transition_spec(kind));
 
         if spec.preset == RouterTransitionPreset::None {
-            self.transition = None;
+            self.transition_rt.state = None;
             return;
         }
 
@@ -157,7 +157,7 @@ impl RouterWidget {
             spec.duration = self.transition_duration.max(0.000_1);
         }
 
-        self.transition = Some(RouterTransitionState {
+        self.transition_rt.state = Some(RouterTransitionState {
             from_route,
             to_route,
             preset: spec.preset,
@@ -167,18 +167,18 @@ impl RouterWidget {
             progress: 0.0,
             hero: HeroTransitionState::default(),
         });
-        self.transition_next_frame = cx.new_next_frame();
+        self.transition_rt.next_frame = cx.new_next_frame();
         self.redraw(cx);
     }
 
     pub(super) fn update_transition(&mut self, cx: &mut Cx, time: f64) {
-        let Some(state) = &mut self.transition else {
+        let Some(state) = &mut self.transition_rt.state else {
             return;
         };
         if !state.tick(time) {
-            self.transition_next_frame = cx.new_next_frame();
+            self.transition_rt.next_frame = cx.new_next_frame();
         } else {
-            self.transition = None;
+            self.transition_rt.state = None;
         }
         self.redraw(cx);
     }

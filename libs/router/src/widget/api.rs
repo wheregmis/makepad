@@ -1,4 +1,4 @@
-use crate::{route::Route, router::RouterAction, state::RouterState};
+use crate::{router::RouterAction, state::RouterState};
 use makepad_widgets::*;
 
 use super::{RouterNavRequest, RouterWidget, RouterActionKind, RouterTransitionDirection, RouterTransitionSpec};
@@ -386,53 +386,11 @@ impl RouterWidget {
     }
 
     pub fn get_state(&self) -> RouterState {
-        RouterState {
-            history: self.router.history.clone(),
-            url_path_override: self.url_path_override.clone(),
-        }
+        self.build_state()
     }
 
     pub fn set_state(&mut self, cx: &mut Cx, state: RouterState) -> bool {
-        let old_route = self.router.current_route().cloned();
-        let (stack, current_index) = state.history.into_parts();
-
-        let mut filtered = Vec::<Route>::new();
-        let mut new_current = 0usize;
-        for (idx, route) in stack.into_iter().enumerate() {
-            if !self.route_templates.contains_key(&route.id) {
-                continue;
-            }
-            if idx <= current_index {
-                new_current = filtered.len();
-            }
-            filtered.push(route);
-        }
-        if filtered.is_empty() {
-            return false;
-        }
-
-        self.clear_url_extras();
-        self.url_path_override = state.url_path_override;
-        self.router.history = crate::navigation::NavigationHistory::from_parts(filtered, new_current);
-        let Some(new_route) = self.router.current_route().cloned() else {
-            return false;
-        };
-        self.active_route = new_route.id;
-        self.transition = None;
-        self.ensure_route_widget(cx, new_route.id);
-
-        for callback in &self.route_change_callbacks {
-            callback(cx, old_route.clone(), new_route.clone());
-        }
-        self.queue_route_actions(
-            Some(RouterAction::Reset(new_route.clone())),
-            old_route.as_ref().map(|r| r.id),
-            &new_route,
-        );
-
-        self.web_replace_current_url(cx);
-        self.redraw(cx);
-        true
+        self.apply_state(cx, state)
     }
 
     pub fn clear_history(&mut self, cx: &mut Cx) {

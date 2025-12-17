@@ -7,10 +7,10 @@ impl RouterWidget {
         &mut self,
         path: &str,
     ) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
-        if self.nested_prefix_cache_epoch == self.route_registry_epoch
-            && self.nested_prefix_cache_path == path
+        if self.caches.nested_prefix_cache_epoch == self.caches.route_registry_epoch
+            && self.caches.nested_prefix_cache_path == path
         {
-            return self.nested_prefix_cache_result.clone();
+            return self.caches.nested_prefix_cache_result.clone();
         }
 
         let mut best: Option<(LiveId, RouteParams, RoutePattern, String, usize)> = None;
@@ -34,9 +34,9 @@ impl RouterWidget {
         }
 
         let out = best.map(|(id, params, pattern, tail, _prio)| (id, params, pattern, tail));
-        self.nested_prefix_cache_epoch = self.route_registry_epoch;
-        self.nested_prefix_cache_path = path.to_string();
-        self.nested_prefix_cache_result = out.clone();
+        self.caches.nested_prefix_cache_epoch = self.caches.route_registry_epoch;
+        self.caches.nested_prefix_cache_path = path.to_string();
+        self.caches.nested_prefix_cache_result = out.clone();
         out
     }
 
@@ -78,7 +78,7 @@ impl RouterWidget {
                     if let Some(mut inner) = child_router.borrow_mut() {
                         inner.url_sync = false;
                         inner.use_initial_url = false;
-                        inner.web_history_initialized = false;
+                        inner.web.history_initialized = false;
                     }
                     self.child_routers.insert(*route_id, child_router);
                     break;
