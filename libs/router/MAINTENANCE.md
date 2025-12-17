@@ -50,8 +50,9 @@ Currently covered:
    - `widget/fields.rs` is already extracted (group RouterWidget state into sub-structs).
    - `widget/persistence.rs` is already extracted (widget-level state save/restore helpers).
    - `widget/callbacks.rs` is already extracted (route-change callback registration + dispatch).
+   - `widget/guards.rs` is already extracted (guard + before-leave registration + storage).
    - Next candidates:
-      - `widget/guards.rs` (guard + before-leave registration + dispatch)
+      - `widget/actions.rs` (RouterWidgetRef convenience helpers + action routing)
       
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.

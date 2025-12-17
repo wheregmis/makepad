@@ -53,12 +53,12 @@ impl RouterWidget {
         };
 
         if !skip_before_leave && leaving {
-            for hook in &self.before_leave_hooks {
+            for hook in self.before_leave_hooks() {
                 if hook(cx, &context) == RouterBeforeLeaveDecision::Block {
                     return false;
                 }
             }
-            if !self.before_leave_hooks_async.is_empty() {
+            if self.has_async_before_leave_hooks() {
                 return self.run_before_leave_async(cx, request, context, 0, redirect_depth);
             }
         }
@@ -298,7 +298,7 @@ impl RouterWidget {
     ) -> bool {
         loop {
             let mut redirected = None;
-            for guard in &self.route_guards {
+            for guard in self.route_guards() {
                 match guard(cx, &context) {
                     RouterGuardDecision::Allow => {}
                     RouterGuardDecision::Block => return false,
@@ -322,7 +322,7 @@ impl RouterWidget {
                 continue;
             }
 
-            if !self.route_guards_async.is_empty() {
+            if self.has_async_route_guards() {
                 return self.run_guard_async(cx, request, context, 0, redirect_depth);
             }
 
@@ -339,8 +339,9 @@ impl RouterWidget {
         redirect_depth: u8,
     ) -> bool {
         let mut idx = start_index;
-        while idx < self.before_leave_hooks_async.len() {
-            match (self.before_leave_hooks_async[idx])(cx, &context) {
+        let hooks = self.before_leave_hooks_async();
+        while idx < hooks.len() {
+            match (hooks[idx])(cx, &context) {
                 RouterAsyncDecision::Immediate(RouterBeforeLeaveDecision::Allow) => {
                     idx += 1;
                 }
@@ -370,8 +371,9 @@ impl RouterWidget {
         redirect_depth: u8,
     ) -> bool {
         let mut idx = start_index;
-        while idx < self.route_guards_async.len() {
-            match (self.route_guards_async[idx])(cx, &context) {
+        let guards = self.route_guards_async();
+        while idx < guards.len() {
+            match (guards[idx])(cx, &context) {
                 RouterAsyncDecision::Immediate(RouterGuardDecision::Allow) => idx += 1,
                 RouterAsyncDecision::Immediate(RouterGuardDecision::Block) => return false,
                 RouterAsyncDecision::Immediate(RouterGuardDecision::Redirect(redirect)) => {

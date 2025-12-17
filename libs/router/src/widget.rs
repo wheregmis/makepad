@@ -1,7 +1,6 @@
 use crate::{
     guards::{
-        RouterAsyncDecision, RouterAsyncGuard, RouterBeforeLeaveAsync, RouterBeforeLeaveDecision,
-        RouterBeforeLeaveSync, RouterGuardDecision, RouterNavContext, RouterSyncGuard,
+        RouterAsyncDecision, RouterBeforeLeaveDecision, RouterGuardDecision, RouterNavContext,
     },
     route::Route,
     router::{Router, RouterAction},
@@ -16,6 +15,7 @@ mod api;
 mod actions;
 mod callbacks;
 mod fields;
+mod guards;
 mod guard_flow;
 mod hero;
 mod hero_render;
@@ -30,7 +30,10 @@ mod url_cache;
 mod url_sync;
 
 use guard_flow::PendingNavigation;
-use fields::{PointerCleanup, RouterCaches, RouterCallbacks, RouterDrawLists, TransitionRuntime, WebUrlState};
+use fields::{
+    PointerCleanup, RouterCaches, RouterCallbacks, RouterDrawLists, RouterGuards, TransitionRuntime,
+    WebUrlState,
+};
 use transitions::{RouterActionKind, RouterTransitionDirection, RouterTransitionState};
 pub use transitions::{RouterTransitionPreset, RouterTransitionSpec};
 
@@ -190,13 +193,7 @@ pub struct RouterWidget {
     #[rust]
     callbacks: RouterCallbacks,
     #[rust]
-    route_guards: Vec<RouterSyncGuard>,
-    #[rust]
-    route_guards_async: Vec<RouterAsyncGuard>,
-    #[rust]
-    before_leave_hooks: Vec<RouterBeforeLeaveSync>,
-    #[rust]
-    before_leave_hooks_async: Vec<RouterBeforeLeaveAsync>,
+    guards: RouterGuards,
     #[rust]
     pending_navigation: Option<PendingNavigation>,
     #[rust]
@@ -245,39 +242,6 @@ impl RouterWidget {
         Ok(())
     }
 
-    pub fn add_route_guard<F>(&mut self, guard: F)
-    where
-        F: Fn(&mut Cx, &RouterNavContext) -> RouterGuardDecision + Send + Sync + 'static,
-    {
-        self.route_guards.push(Box::new(guard));
-    }
-
-    pub fn add_route_guard_async<F>(&mut self, guard: F)
-    where
-        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterGuardDecision>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.route_guards_async.push(Box::new(guard));
-    }
-
-    pub fn add_before_leave_hook<F>(&mut self, hook: F)
-    where
-        F: Fn(&mut Cx, &RouterNavContext) -> RouterBeforeLeaveDecision + Send + Sync + 'static,
-    {
-        self.before_leave_hooks.push(Box::new(hook));
-    }
-
-    pub fn add_before_leave_hook_async<F>(&mut self, hook: F)
-    where
-        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterBeforeLeaveDecision>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.before_leave_hooks_async.push(Box::new(hook));
-    }
 }
 
 impl WidgetNode for RouterWidget {

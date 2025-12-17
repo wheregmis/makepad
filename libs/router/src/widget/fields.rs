@@ -3,10 +3,19 @@ use makepad_widgets::*;
 
 use super::RouterTransitionState;
 use crate::route::Route;
+use crate::guards::{RouterAsyncGuard, RouterBeforeLeaveAsync, RouterBeforeLeaveSync, RouterSyncGuard};
 
 #[derive(Default)]
 pub(crate) struct RouterCallbacks {
     pub(crate) route_change: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
+}
+
+#[derive(Default)]
+pub(crate) struct RouterGuards {
+    pub(crate) route_guards: Vec<RouterSyncGuard>,
+    pub(crate) route_guards_async: Vec<RouterAsyncGuard>,
+    pub(crate) before_leave_hooks: Vec<RouterBeforeLeaveSync>,
+    pub(crate) before_leave_hooks_async: Vec<RouterBeforeLeaveAsync>,
 }
 
 #[derive(Default)]
