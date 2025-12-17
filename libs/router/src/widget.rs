@@ -216,22 +216,28 @@ impl LiveHook for RouterWidget {
                                     );
                                     let route_transition_duration_idx = nodes.child_by_name(
                                         index,
-                                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+                                        LiveProp(
+                                            live_id!(route_transition_duration),
+                                            LivePropType::Field,
+                                        ),
                                     );
-                                    apply.override_from(ApplyFrom::NewFromDoc { file_id }, |apply| {
-                                        Self::apply_widget_silencing_route_metadata(
-                                            cx,
-                                            apply,
-                                            index,
-                                            nodes,
-                                            &mut widget,
-                                            &[
-                                                route_pattern_idx,
-                                                route_transition_idx,
-                                                route_transition_duration_idx,
-                                            ],
-                                        );
-                                    });
+                                    apply.override_from(
+                                        ApplyFrom::NewFromDoc { file_id },
+                                        |apply| {
+                                            Self::apply_widget_silencing_route_metadata(
+                                                cx,
+                                                apply,
+                                                index,
+                                                nodes,
+                                                &mut widget,
+                                                &[
+                                                    route_pattern_idx,
+                                                    route_transition_idx,
+                                                    route_transition_duration_idx,
+                                                ],
+                                            );
+                                        },
+                                    );
                                     nodes.skip_node(index)
                                 });
                                 widget
@@ -266,7 +272,10 @@ impl LiveHook for RouterWidget {
                     self.route_templates.insert(id, live_ptr);
 
                     // Scan for route_pattern property in child nodes and register it
-                    if let Some(pattern_node_idx) = nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field)) {
+                    if let Some(pattern_node_idx) = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_pattern), LivePropType::Field),
+                    ) {
                         let pattern_node = &nodes[pattern_node_idx];
                         if let LiveValue::Str(pattern) = &pattern_node.value {
                             let pattern_str = pattern.to_string();
@@ -314,7 +323,8 @@ impl LiveHook for RouterWidget {
                             _ => None,
                         };
                         if let Some(duration) = duration {
-                            self.route_transition_duration_overrides.insert(id, duration);
+                            self.route_transition_duration_overrides
+                                .insert(id, duration);
                         }
                     }
 
@@ -348,7 +358,11 @@ impl LiveHook for RouterWidget {
                         index,
                         nodes,
                         widget,
-                        &[route_pattern_idx, route_transition_idx, route_transition_duration_idx],
+                        &[
+                            route_pattern_idx,
+                            route_transition_idx,
+                            route_transition_duration_idx,
+                        ],
                     );
                 } else {
                     cx.apply_error_no_matching_field(live_error_origin!(), index, nodes);
@@ -361,13 +375,20 @@ impl LiveHook for RouterWidget {
 }
 
 impl RouterWidget {
-    fn resolve_nested_prefix(&self, path: &str) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
+    fn resolve_nested_prefix(
+        &self,
+        path: &str,
+    ) -> Option<(LiveId, RouteParams, RoutePattern, String)> {
         let route_ids_to_check: Vec<LiveId> = self.child_routers.keys().cloned().collect();
         let mut best: Option<(LiveId, RouteParams, RoutePattern, String, usize)> = None;
 
         for route_id in route_ids_to_check {
-            let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) else { continue };
-            let Some((params, tail)) = pattern_obj.matches_prefix_with_tail(path) else { continue };
+            let Some(pattern_obj) = self.router.route_registry.get_pattern(route_id) else {
+                continue;
+            };
+            let Some((params, tail)) = pattern_obj.matches_prefix_with_tail(path) else {
+                continue;
+            };
             let priority = pattern_obj.priority();
             match &best {
                 Some((_id, _p, _pat, _tail, best_prio)) if *best_prio <= priority => {}
@@ -422,10 +443,14 @@ impl RouterWidget {
     fn new_route_widget_from_ptr(cx: &mut Cx, ptr: LivePtr) -> WidgetRef {
         let mut widget = WidgetRef::empty();
         cx.get_nodes_from_live_ptr(ptr, |cx, file_id, index, nodes| {
-            let route_pattern_idx =
-                nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field));
-            let route_transition_idx =
-                nodes.child_by_name(index, LiveProp(live_id!(route_transition), LivePropType::Field));
+            let route_pattern_idx = nodes.child_by_name(
+                index,
+                LiveProp(live_id!(route_pattern), LivePropType::Field),
+            );
+            let route_transition_idx = nodes.child_by_name(
+                index,
+                LiveProp(live_id!(route_transition), LivePropType::Field),
+            );
             let route_transition_duration_idx = nodes.child_by_name(
                 index,
                 LiveProp(live_id!(route_transition_duration), LivePropType::Field),
@@ -437,7 +462,11 @@ impl RouterWidget {
                 index,
                 nodes,
                 &mut widget,
-                &[route_pattern_idx, route_transition_idx, route_transition_duration_idx],
+                &[
+                    route_pattern_idx,
+                    route_transition_idx,
+                    route_transition_duration_idx,
+                ],
             );
             nodes.skip_node(index)
         });
@@ -520,7 +549,7 @@ impl RouterWidget {
             return;
         }
         self.ignore_next_browser_url_change = true;
-        CxOsApi::browser_history_go(cx, delta as f64);
+        CxOsApi::browser_history_go(cx, delta);
     }
 
     fn join_paths(base: &str, tail: &str) -> String {
@@ -664,8 +693,12 @@ impl RouterWidget {
         match id {
             x if x == live_id!(none) || x == live_id!(None) => RouterTransitionPreset::None,
             x if x == live_id!(fade) || x == live_id!(Fade) => RouterTransitionPreset::Fade,
-            x if x == live_id!(slide_left) || x == live_id!(SlideLeft) => RouterTransitionPreset::SlideLeft,
-            x if x == live_id!(slide_right) || x == live_id!(SlideRight) => RouterTransitionPreset::SlideRight,
+            x if x == live_id!(slide_left) || x == live_id!(SlideLeft) => {
+                RouterTransitionPreset::SlideLeft
+            }
+            x if x == live_id!(slide_right) || x == live_id!(SlideRight) => {
+                RouterTransitionPreset::SlideRight
+            }
             x if x == live_id!(scale) || x == live_id!(Scale) => RouterTransitionPreset::Scale,
             x if x == live_id!(shared_axis) || x == live_id!(SharedAxis) => {
                 RouterTransitionPreset::SharedAxis
@@ -1069,7 +1102,7 @@ impl RouterWidget {
                     RouterTransitionDirection::Backward,
                     None,
                 );
-                
+
                 // Trigger route change callbacks
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), route.clone());
@@ -1362,7 +1395,9 @@ impl RouterWidget {
         self.clear_url_extras();
         let old_route = self.router.current_route().cloned();
         self.router.set_stack(filtered);
-        let Some(new_route) = self.router.current_route().cloned() else { return false };
+        let Some(new_route) = self.router.current_route().cloned() else {
+            return false;
+        };
         self.active_route = new_route.id;
         self.ensure_route_widget(cx, new_route.id);
         self.start_transition(
@@ -1637,7 +1672,11 @@ impl RouterWidget {
     }
 
     /// Register a route pattern
-    pub fn register_route_pattern(&mut self, pattern: &str, route_id: LiveId) -> Result<(), String> {
+    pub fn register_route_pattern(
+        &mut self,
+        pattern: &str,
+        route_id: LiveId,
+    ) -> Result<(), String> {
         self.router.register_route_pattern(pattern, route_id)?;
         self.route_patterns.insert(route_id, pattern.to_string());
         Ok(())
@@ -1690,7 +1729,9 @@ impl RouterWidget {
             if self.child_routers.contains_key(route_id) {
                 continue;
             }
-            let Some(paths) = self.child_router_paths.get(route_id) else { continue };
+            let Some(paths) = self.child_router_paths.get(route_id) else {
+                continue;
+            };
             for path in paths {
                 let child_widget = route_widget.widget(path);
                 if child_widget.borrow::<RouterWidget>().is_some() {
@@ -1715,7 +1756,13 @@ impl RouterWidget {
         let end = nodes.skip_node(root_index);
         let mut i = root_index + 1;
         while i < end {
-            i = Self::collect_child_router_paths_recur(i, nodes, router_live_type, &mut path, &mut out);
+            i = Self::collect_child_router_paths_recur(
+                i,
+                nodes,
+                router_live_type,
+                &mut path,
+                &mut out,
+            );
         }
         out
     }
@@ -1739,7 +1786,13 @@ impl RouterWidget {
                 let end = nodes.skip_node(index);
                 let mut i = index + 1;
                 while i < end {
-                    i = Self::collect_child_router_paths_recur(i, nodes, router_live_type, path, out);
+                    i = Self::collect_child_router_paths_recur(
+                        i,
+                        nodes,
+                        router_live_type,
+                        path,
+                        out,
+                    );
                 }
                 path.pop();
                 return end;
@@ -1915,13 +1968,8 @@ impl Widget for RouterWidget {
         let rect = cx.turtle().inner_rect();
 
         if let Some(state) = self.transition.clone() {
-            let from_effect = Self::compute_effect(
-                state.preset,
-                state.direction,
-                state.progress,
-                false,
-                rect,
-            );
+            let from_effect =
+                Self::compute_effect(state.preset, state.direction, state.progress, false, rect);
             let to_effect =
                 Self::compute_effect(state.preset, state.direction, state.progress, true, rect);
 
@@ -2214,7 +2262,9 @@ impl RouterWidgetRef {
         target_route: LiveId,
     ) -> bool {
         if self
-            .with_active_route_widget(|route_widget| route_widget.button(&[button_id]).clicked(actions))
+            .with_active_route_widget(|route_widget| {
+                route_widget.button(&[button_id]).clicked(actions)
+            })
             .unwrap_or(false)
         {
             return self.navigate(cx, target_route);
