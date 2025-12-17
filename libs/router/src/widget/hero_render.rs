@@ -14,7 +14,7 @@ impl RouterWidget {
         }
 
         if let Some(state_snapshot) = self.transition.clone() {
-            if hero_enabled && !state_snapshot.hero_capture_done {
+            if hero_enabled && !state_snapshot.hero.capture_done {
                 cx.global::<HeroGlobals>().clear_capture();
                 cx.global::<HeroGlobals>().set_hide_tags(&[]);
 
@@ -42,14 +42,14 @@ impl RouterWidget {
 
                 let hero_pairs = cx.global::<HeroGlobals>().take_pairs();
                 if let Some(state) = self.transition.as_mut() {
-                    state.hero_pairs = hero_pairs;
-                    state.hero_capture_done = true;
+                    state.hero.pairs = hero_pairs;
+                    state.hero.capture_done = true;
                 }
             }
 
             let state = self.transition.clone().unwrap_or(state_snapshot);
 
-            let hide_tags: Vec<LiveId> = state.hero_pairs.iter().map(|p| p.tag).collect();
+            let hide_tags: Vec<LiveId> = state.hero.pairs.iter().map(|p| p.tag).collect();
             let has_hero_pairs = hero_enabled && !hide_tags.is_empty();
             let route_preset = if has_hero_pairs {
                 RouterTransitionPreset::Fade
@@ -103,7 +103,7 @@ impl RouterWidget {
                 let from_opacity = (1.0 - t) as f32;
                 let to_opacity = t as f32;
 
-                let pairs = state.hero_pairs.clone();
+                let pairs = state.hero.pairs.clone();
                 let lerp = |a: f64, b: f64| a + (b - a) * t;
                 let lerp_rect = |a: Rect, b: Rect| Rect {
                     pos: dvec2(lerp(a.pos.x, b.pos.x), lerp(a.pos.y, b.pos.y)),
@@ -168,4 +168,3 @@ impl RouterWidget {
         }
     }
 }
-

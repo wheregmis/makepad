@@ -14,6 +14,7 @@ pub use crate::hero::Hero;
 
 mod api;
 mod guard_flow;
+mod hero;
 mod hero_render;
 mod inspector;
 mod nested;

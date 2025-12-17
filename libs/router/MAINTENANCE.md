@@ -41,11 +41,13 @@ Currently covered:
    - `widget/transitions.rs` and `widget/url_sync.rs` are already extracted.
    - `widget/nested.rs` is already extracted.
    - `widget/guard_flow.rs` is already extracted.
+   - `widget/hero.rs` is already extracted (hero transition state/pairing data).
    - `widget/hero_render.rs` is already extracted.
    - `widget/api.rs` is already extracted (public `RouterWidget` methods).
    - `widget/path_nav.rs` is already extracted (path resolution + not-found handling).
    - Next candidates:
-      - `widget/hero.rs` (hero pairing + shared element transition driving)
+      - `widget/route_widgets.rs` (route widget creation + metadata silencing)
+      - `widget/live_apply.rs` (LiveHook apply plumbing + route template scanning)
 
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.

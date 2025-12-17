@@ -1,8 +1,7 @@
-use crate::hero::HeroPair;
 use makepad_draw::draw_list_2d::DrawListExt;
 use makepad_widgets::*;
 
-use super::RouterWidget;
+use super::{hero::HeroTransitionState, RouterWidget};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RouterTransitionPreset {
@@ -71,8 +70,7 @@ pub(super) struct RouterTransitionState {
     pub(super) start_time: Option<f64>,
     pub(super) duration: f64,
     pub(super) progress: f64,
-    pub(super) hero_capture_done: bool,
-    pub(super) hero_pairs: Vec<HeroPair>,
+    pub(super) hero: HeroTransitionState,
 }
 
 impl RouterTransitionState {
@@ -162,8 +160,7 @@ impl RouterWidget {
             start_time: None,
             duration: spec.duration,
             progress: 0.0,
-            hero_capture_done: false,
-            hero_pairs: Vec::new(),
+            hero: HeroTransitionState::default(),
         });
         self.transition_next_frame = cx.new_next_frame();
         self.redraw(cx);
@@ -358,8 +355,7 @@ mod tests {
             start_time: None,
             duration: 1.0,
             progress: 0.0,
-            hero_capture_done: false,
-            hero_pairs: Vec::new(),
+            hero: HeroTransitionState::default(),
         };
 
         assert!(!state.tick(10.0));
@@ -372,4 +368,3 @@ mod tests {
         assert_eq!(state.progress, 1.0);
     }
 }
-
