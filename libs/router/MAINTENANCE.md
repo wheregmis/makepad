@@ -40,13 +40,13 @@ Currently covered:
    - `widget/inspector.rs` is already extracted.
    - `widget/transitions.rs` and `widget/url_sync.rs` are already extracted.
    - `widget/nested.rs` is already extracted.
+   - `widget/guard_flow.rs` is already extracted.
    - Next candidates:
-     - `widget/guards.rs` (guard/before-leave execution and pending state)
      - `widget/hero.rs` (hero pairing + shared element transition driving)
 
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.
-   - If UI-only types are needed, contain them under `widget`/`guards`.
+   - If UI-only types are needed, contain them under `widget` submodules.
 
 3. **Expand regression coverage for router semantics**
    - Nested prefix matching edge cases (dynamic + wildcards).
