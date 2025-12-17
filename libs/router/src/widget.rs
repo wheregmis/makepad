@@ -4,7 +4,7 @@ use crate::{
         RouterBeforeLeaveSync, RouterGuardDecision, RouterNavContext, RouterSyncGuard,
     },
     route::Route,
-    router::{RouteRegistry, Router, RouterAction},
+    router::{Router, RouterAction},
     state::RouterState,
 };
 use makepad_draw::draw_list_2d::DrawListExt;
@@ -17,6 +17,7 @@ mod guard_flow;
 mod hero;
 mod hero_render;
 mod inspector;
+mod live_apply;
 mod nested;
 mod path_nav;
 mod route_widgets;
@@ -236,219 +237,6 @@ pub struct RouterWidget {
     transition_next_frame: NextFrame,
 }
 
-impl LiveHook for RouterWidget {
-    fn before_apply(
-        &mut self,
-        _cx: &mut Cx,
-        apply: &mut Apply,
-        _index: usize,
-        _nodes: &[LiveNode],
-    ) {
-        if let ApplyFrom::UpdateFromDoc { .. } = apply.from {
-            self.route_templates.clear();
-            self.route_patterns.clear();
-            self.route_transition_overrides.clear();
-            self.route_transition_duration_overrides.clear();
-            self.child_router_paths.clear();
-            self.child_routers.clear();
-            self.router.route_registry = RouteRegistry::default();
-            self.transition = None;
-        }
-    }
-
-    fn after_apply(&mut self, cx: &mut Cx, apply: &mut Apply, _index: usize, _nodes: &[LiveNode]) {
-        match apply.from {
-            ApplyFrom::NewFromDoc { .. } | ApplyFrom::UpdateFromDoc { .. } => {
-                if self.router.current_route().is_none() {
-                    let initial_route = if self.active_route.0 != 0 {
-                        self.active_route
-                    } else {
-                        self.default_route
-                    };
-
-                    if initial_route.0 != 0 {
-                        self.router.persist_state = self.persist_state;
-                        self.router.reset(Route::new(initial_route));
-                        self.active_route = initial_route;
-                    }
-                }
-
-                // Create widgets for ALL routes, not just the active one
-                // This ensures buttons on inactive pages can still generate events
-                for (route_id, _ptr) in self.route_templates.iter() {
-                    if !self.route_widgets.contains_key(route_id) {
-                        if let Some(ptr) = self.route_templates.get(route_id) {
-                            self.route_widgets.get_or_insert(cx, *route_id, |cx| {
-                                let mut widget = WidgetRef::empty();
-                                cx.get_nodes_from_live_ptr(*ptr, |cx, file_id, index, nodes| {
-                                    let route_pattern_idx = nodes.child_by_name(
-                                        index,
-                                        LiveProp(live_id!(route_pattern), LivePropType::Field),
-                                    );
-                                    let route_transition_idx = nodes.child_by_name(
-                                        index,
-                                        LiveProp(live_id!(route_transition), LivePropType::Field),
-                                    );
-                                    let route_transition_duration_idx = nodes.child_by_name(
-                                        index,
-                                        LiveProp(
-                                            live_id!(route_transition_duration),
-                                            LivePropType::Field,
-                                        ),
-                                    );
-                                    apply.override_from(
-                                        ApplyFrom::NewFromDoc { file_id },
-                                        |apply| {
-                                            Self::apply_widget_silencing_route_metadata(
-                                                cx,
-                                                apply,
-                                                index,
-                                                nodes,
-                                                &mut widget,
-                                                &[
-                                                    route_pattern_idx,
-                                                    route_transition_idx,
-                                                    route_transition_duration_idx,
-                                                ],
-                                            );
-                                        },
-                                    );
-                                    nodes.skip_node(index)
-                                });
-                                widget
-                            });
-                        }
-                    }
-                }
-
-                // Auto-detect child routers in route widgets
-                self.detect_child_routers(cx);
-                self.apply_initial_url_if_needed(cx);
-            }
-            _ => (),
-        }
-    }
-
-    fn apply_value_instance(
-        &mut self,
-        cx: &mut Cx,
-        apply: &mut Apply,
-        index: usize,
-        nodes: &[LiveNode],
-    ) -> usize {
-        let id = nodes[index].id;
-        match apply.from {
-            ApplyFrom::NewFromDoc { file_id } | ApplyFrom::UpdateFromDoc { file_id, .. } => {
-                if nodes[index].origin.has_prop_type(LivePropType::Instance) {
-                    let live_ptr = cx
-                        .live_registry
-                        .borrow()
-                        .file_id_index_to_live_ptr(file_id, index);
-                    self.route_templates.insert(id, live_ptr);
-
-                    // Scan for route_pattern property in child nodes and register it
-                    if let Some(pattern_node_idx) = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_pattern), LivePropType::Field),
-                    ) {
-                        let pattern_node = &nodes[pattern_node_idx];
-                        if let LiveValue::Str(pattern) = &pattern_node.value {
-                            let pattern_str = pattern.to_string();
-                            self.route_patterns.insert(id, pattern_str.clone());
-                            // Auto-register the pattern
-                            if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
-                                log!("Failed to register route pattern {}: {}", pattern_str, e);
-                            }
-                        } else if let LiveValue::String(pattern) = &pattern_node.value {
-                            let pattern_str = pattern.as_str().to_string();
-                            self.route_patterns.insert(id, pattern_str.clone());
-                            // Auto-register the pattern
-                            if let Err(e) = self.router.register_route_pattern(&pattern_str, id) {
-                                log!("Failed to register route pattern {}: {}", pattern_str, e);
-                            }
-                        }
-                    }
-
-                    // Optional per-route transition override (DSL metadata).
-                    if let Some(transition_node_idx) = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition), LivePropType::Field),
-                    ) {
-                        let transition_node = &nodes[transition_node_idx];
-                        let transition_id = match &transition_node.value {
-                            LiveValue::Id(id) => *id,
-                            LiveValue::Str(s) => LiveId::from_str(s),
-                            LiveValue::String(s) => LiveId::from_str(s.as_str()),
-                            _ => LiveId(0),
-                        };
-                        if transition_id.0 != 0 {
-                            self.route_transition_overrides.insert(id, transition_id);
-                        }
-                    }
-
-                    if let Some(duration_node_idx) = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
-                    ) {
-                        let duration_node = &nodes[duration_node_idx];
-                        let duration = match &duration_node.value {
-                            LiveValue::Float64(v) => Some(*v),
-                            LiveValue::Float32(v) => Some(*v as f64),
-                            LiveValue::Int64(v) => Some(*v as f64),
-                            _ => None,
-                        };
-                        if let Some(duration) = duration {
-                            self.route_transition_duration_overrides
-                                .insert(id, duration);
-                        }
-                    }
-
-                    // Scan for nested RouterWidget instances inside this route.
-                    self.child_router_paths
-                        .insert(id, Self::collect_child_router_paths(index, nodes));
-
-                    // Create/update the route widget instance. We silence `route_pattern` by marking
-                    // it as a prefixed property before applying, so it is ignored by the default
-                    // `apply_value_unknown` handler (no noisy "no matching field" warning).
-                    let route_pattern_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_pattern), LivePropType::Field),
-                    );
-                    let route_transition_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition), LivePropType::Field),
-                    );
-                    let route_transition_duration_idx = nodes.child_by_name(
-                        index,
-                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
-                    );
-
-                    let widget = self
-                        .route_widgets
-                        .get_or_insert(cx, id, |_cx| WidgetRef::empty());
-
-                    Self::apply_widget_silencing_route_metadata(
-                        cx,
-                        apply,
-                        index,
-                        nodes,
-                        widget,
-                        &[
-                            route_pattern_idx,
-                            route_transition_idx,
-                            route_transition_duration_idx,
-                        ],
-                    );
-                } else {
-                    cx.apply_error_no_matching_field(live_error_origin!(), index, nodes);
-                }
-            }
-            _ => (),
-        }
-        nodes.skip_node(index)
-    }
-}
-
 impl RouterWidget {
     fn queue_route_actions(
         &mut self,
@@ -496,15 +284,6 @@ impl RouterWidget {
         Ok(())
     }
 
-    /// Apply a route widget while silencing router-only DSL metadata.
-    ///
-    /// `route_pattern` / `route_transition` / `route_transition_duration` are router-level metadata
-    /// fields, not properties of the route page widgets.
-    /// The Live apply system forwards all instance children into the instantiated widget. Instead
-    /// of attempting to surgically re-run the apply process without this field (which would require
-    /// reconstructing parts of the apply engine), we mark the node as "prefixed". The default
-    /// `LiveHook::apply_value_unknown` handler does not warn on prefixed unknown properties, so the
-    /// page widget ignores it without logging.
     /// Register a route change callback
     /// The callback will be called whenever the route changes, with the old route (if any) and new route
     pub fn on_route_change<F>(&mut self, callback: F)
