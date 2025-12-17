@@ -1,5 +1,11 @@
 use makepad_router::*;
 use makepad_widgets::*;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
 
 live_design! {
     use link::widgets::*;
@@ -256,6 +262,35 @@ live_design! {
             }
         }
 
+        auth_status_label = <Label> {
+            text: "Auth: (unknown)"
+            draw_text: {
+                text_style: { font_size: 16 }
+                color: #xFFFFFF
+            }
+        }
+
+        dirty_status_label = <Label> {
+            text: "Dirty: (unknown)"
+            draw_text: {
+                text_style: { font_size: 16 }
+                color: #xFFFFFF
+            }
+        }
+
+        <View> {
+            width: Fill, height: Fit
+            flow: Right, spacing: 10
+
+            login_toggle_btn = <Button> {
+                text: "Toggle Login"
+            }
+
+            dirty_toggle_btn = <Button> {
+                text: "Toggle Dirty"
+            }
+        }
+
         home_btn = <Button> {
             text: "Back to Home"
         }
@@ -455,6 +490,12 @@ pub struct App {
     ui: WidgetRef,
     #[rust]
     last_user_id: Option<String>,
+    #[rust]
+    auth_logged_in: Arc<AtomicBool>,
+    #[rust]
+    settings_dirty: Arc<AtomicBool>,
+    #[rust]
+    hooks_installed: bool,
 }
 
 impl LiveRegister for App {
@@ -514,10 +555,7 @@ impl MatchEvent for App {
             log!("🔐 Navigating to admin (nested router)");
             // Demonstrate nested routing: `/admin/*` activates the Admin route and delegates the tail
             // (e.g. `/dashboard`) into `admin_router` based on its own route patterns.
-            //
-            // We clear history afterwards so the navbar back button cannot return to Home from Admin.
             router.navigate_by_path(cx, "/admin/dashboard");
-            router.clear_history(cx);
         }
 
         // Admin nested router navigation
@@ -622,6 +660,24 @@ impl MatchEvent for App {
             log!("⚙️→🏠 Settings: Home clicked");
             router.navigate(cx, live_id!(home));
         }
+
+        if self
+            .ui
+            .button(ids!(router.settings.login_toggle_btn))
+            .clicked(&actions)
+        {
+            let next = !self.auth_logged_in.load(Ordering::SeqCst);
+            self.auth_logged_in.store(next, Ordering::SeqCst);
+        }
+
+        if self
+            .ui
+            .button(ids!(router.settings.dirty_toggle_btn))
+            .clicked(&actions)
+        {
+            let next = !self.settings_dirty.load(Ordering::SeqCst);
+            self.settings_dirty.store(next, Ordering::SeqCst);
+        }
         if self
             .ui
             .button(ids!(router.about.home_btn))
@@ -655,13 +711,93 @@ impl MatchEvent for App {
         self.ui
             .button(ids!(nav_bar.back_btn))
             .set_enabled(cx, router.can_go_back());
+
+        if router.current_route_id() == Some(live_id!(settings)) {
+            self.ui
+                .label(ids!(router.settings.auth_status_label))
+                .set_text(
+                    cx,
+                    if self.auth_logged_in.load(Ordering::SeqCst) {
+                        "Auth: logged in"
+                    } else {
+                        "Auth: logged out (admin is guarded)"
+                    },
+                );
+            self.ui
+                .label(ids!(router.settings.dirty_status_label))
+                .set_text(
+                    cx,
+                    if self.settings_dirty.load(Ordering::SeqCst) {
+                        "Dirty: true (before-leave blocks)"
+                    } else {
+                        "Dirty: false"
+                    },
+                );
+        }
     }
 }
 
 impl AppMain for App {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event) {
+        if matches!(event, Event::Startup) && !self.hooks_installed {
+            self.hooks_installed = true;
+            self.install_router_hooks(cx);
+        }
         self.match_event(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
+    }
+}
+
+impl App {
+    fn install_router_hooks(&mut self, _cx: &mut Cx) {
+        let router = self.ui.router_widget(ids!(router));
+        let auth = self.auth_logged_in.clone();
+        let dirty = self.settings_dirty.clone();
+
+        router.add_route_guard(move |_cx, nav| {
+            let to = nav.to.as_ref().map(|r| r.id);
+            if to == Some(live_id!(admin)) && !auth.load(Ordering::SeqCst) {
+                return RouterGuardDecision::Redirect(RouterRedirect {
+                    target: RouterRedirectTarget::Route(live_id!(settings)),
+                    replace: true,
+                });
+            }
+            RouterGuardDecision::Allow
+        });
+
+        router.add_before_leave_hook(move |_cx, nav| {
+            let from = nav.from.as_ref().map(|r| r.id);
+            let to = nav.to.as_ref().map(|r| r.id);
+            if from == Some(live_id!(settings))
+                && to != Some(live_id!(settings))
+                && dirty.load(Ordering::SeqCst)
+            {
+                return RouterBeforeLeaveDecision::Block;
+            }
+            RouterBeforeLeaveDecision::Allow
+        });
+
+        router.add_route_guard_async(move |_cx, nav| {
+            if nav.to.as_ref().map(|r| r.id) != Some(live_id!(about)) {
+                return RouterAsyncDecision::Immediate(RouterGuardDecision::Allow);
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                RouterAsyncDecision::Immediate(RouterGuardDecision::Allow)
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let rx: ToUIReceiver<RouterGuardDecision> = Default::default();
+                let tx = rx.sender();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(200));
+                    let _ = tx.send(RouterGuardDecision::Allow);
+                });
+                RouterAsyncDecision::Pending(rx)
+            }
+        });
     }
 }
 

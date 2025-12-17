@@ -1,4 +1,9 @@
 use crate::{
+    guards::{
+        RouterAsyncDecision, RouterAsyncGuard, RouterBeforeLeaveAsync, RouterBeforeLeaveDecision,
+        RouterBeforeLeaveSync, RouterGuardDecision, RouterNavContext, RouterNavKind,
+        RouterRedirectTarget, RouterSyncGuard,
+    },
     hero::{HeroGlobals, HeroPair, HeroPhase},
     route::{Route, RouteParams, RoutePattern},
     router::{RouteRegistry, Router, RouterAction},
@@ -93,6 +98,80 @@ struct TransitionEffect {
     view_opacity: f32,
 }
 
+const ROUTER_MAX_REDIRECTS: u8 = 8;
+
+#[derive(Clone, Debug)]
+enum RouterNavRequest {
+    Navigate {
+        route_id: LiveId,
+    },
+    NavigateWithTransition {
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    },
+    Replace {
+        route_id: LiveId,
+    },
+    ReplaceWithTransition {
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    },
+    NavigateByPath {
+        path: String,
+    },
+    ReplaceByPath {
+        path: String,
+        clear_extras: bool,
+    },
+    NavigateByUrl {
+        url: String,
+    },
+    ReplaceByUrl {
+        url: String,
+    },
+    Back {
+        transition: Option<RouterTransitionSpec>,
+    },
+    Forward {
+        transition: Option<RouterTransitionSpec>,
+    },
+    Reset {
+        route: Route,
+    },
+    SetStack {
+        stack: Vec<Route>,
+    },
+    Pop,
+    PopTo {
+        route_id: LiveId,
+    },
+    PopToRoot,
+    #[cfg(target_arch = "wasm32")]
+    BrowserUrlChanged {
+        url: String,
+        state_index: i32,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PendingNavPhase {
+    BeforeLeaveAsync,
+    GuardAsync,
+}
+
+enum PendingAsyncRx {
+    BeforeLeave(ToUIReceiver<RouterBeforeLeaveDecision>),
+    Guard(ToUIReceiver<RouterGuardDecision>),
+}
+
+struct PendingNavigation {
+    request: RouterNavRequest,
+    phase: PendingNavPhase,
+    async_index: usize,
+    redirect_depth: u8,
+    rx: PendingAsyncRx,
+}
+
 /// Router widget for managing navigation between pages
 #[derive(Live, LiveRegisterWidget, WidgetRef, WidgetSet)]
 pub struct RouterWidget {
@@ -149,6 +228,18 @@ pub struct RouterWidget {
     child_router_paths: ComponentMap<LiveId, Vec<Vec<LiveId>>>,
     #[rust]
     route_change_callbacks: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
+    #[rust]
+    route_guards: Vec<RouterSyncGuard>,
+    #[rust]
+    route_guards_async: Vec<RouterAsyncGuard>,
+    #[rust]
+    before_leave_hooks: Vec<RouterBeforeLeaveSync>,
+    #[rust]
+    before_leave_hooks_async: Vec<RouterBeforeLeaveAsync>,
+    #[rust]
+    pending_navigation: Option<PendingNavigation>,
+    #[rust]
+    guard_bypass: bool,
     #[rust]
     pending_actions: Vec<RouterAction>,
     #[rust]
@@ -727,21 +818,44 @@ impl RouterWidget {
             return;
         };
         let browser_url = format!("{}{}{}", &params.pathname, &params.search, &params.hash);
-        let parsed = RouterUrl::parse(&browser_url);
 
         self.suppress_browser_update = true;
-        let _ = self.replace_by_path_internal(cx, &parsed.path, false);
-        self.url_query = parsed.query;
-        self.url_hash = parsed.hash;
+        let _ = self.request_navigation_internal(
+            cx,
+            RouterNavRequest::ReplaceByUrl {
+                url: browser_url.clone(),
+            },
+            true,
+            0,
+        );
         self.suppress_browser_update = false;
 
         self.web_history_initialized = true;
         self.web_history_index = 0;
-        self.web_replace_current_url(cx);
+        if self.pending_navigation.is_none() {
+            self.web_replace_current_url(cx);
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
     fn handle_browser_url_changed(&mut self, cx: &mut Cx, url: &str, state_index: i32) {
+        if !self.guard_bypass {
+            let ok = self.request_navigation_internal(
+                cx,
+                RouterNavRequest::BrowserUrlChanged {
+                    url: url.to_string(),
+                    state_index,
+                },
+                true,
+                0,
+            );
+            if !ok {
+                self.ignore_next_browser_url_change = true;
+                self.web_replace_current_url(cx);
+            }
+            return;
+        }
+
         if !self.web_enabled(cx) {
             return;
         }
@@ -767,7 +881,532 @@ impl RouterWidget {
         self.redraw(cx);
     }
 
+    fn request_navigation(&mut self, cx: &mut Cx, request: RouterNavRequest) -> bool {
+        self.request_navigation_internal(cx, request, false, 0)
+    }
+
+    fn request_navigation_internal(
+        &mut self,
+        cx: &mut Cx,
+        request: RouterNavRequest,
+        skip_before_leave: bool,
+        redirect_depth: u8,
+    ) -> bool {
+        if self.guard_bypass {
+            return self.apply_request_bypassing_guards(cx, request);
+        }
+        if self.pending_navigation.is_some() {
+            return false;
+        }
+        let Some((context, leaving)) = self.resolve_nav_context(cx, &request) else {
+            return false;
+        };
+
+        if !skip_before_leave && leaving {
+            for hook in &self.before_leave_hooks {
+                if hook(cx, &context) == RouterBeforeLeaveDecision::Block {
+                    return false;
+                }
+            }
+            if !self.before_leave_hooks_async.is_empty() {
+                return self.run_before_leave_async(cx, request, context, 0, redirect_depth);
+            }
+        }
+
+        self.apply_guards_and_maybe_commit(cx, request, context, redirect_depth)
+    }
+
+    fn resolve_nav_context(
+        &mut self,
+        cx: &mut Cx,
+        request: &RouterNavRequest,
+    ) -> Option<(RouterNavContext, bool)> {
+        let from = self.router.current_route().cloned();
+        let kind = Self::request_kind(request);
+        let mut to: Option<Route> = None;
+        let mut to_path: Option<String> = None;
+        let mut to_url: Option<String> = None;
+
+        match request {
+            RouterNavRequest::Navigate { route_id }
+            | RouterNavRequest::NavigateWithTransition { route_id, .. }
+            | RouterNavRequest::Replace { route_id }
+            | RouterNavRequest::ReplaceWithTransition { route_id, .. } => {
+                if !self.route_templates.contains_key(route_id) {
+                    return None;
+                }
+                to = Some(Route::new(*route_id));
+            }
+            RouterNavRequest::NavigateByPath { path }
+            | RouterNavRequest::ReplaceByPath { path, .. } => {
+                self.detect_child_routers(cx);
+                to_path = Some(path.clone());
+
+                if let Some(route) = self.router.route_registry.resolve_path(path) {
+                    if self.route_templates.contains_key(&route.id) {
+                        to = Some(route);
+                    } else {
+                        return None;
+                    }
+                } else if let Some((route_id, params, pattern, _tail)) = self.resolve_nested_prefix(path)
+                {
+                    if self.route_templates.contains_key(&route_id) {
+                        to = Some(Route {
+                            id: route_id,
+                            params,
+                            pattern: Some(pattern),
+                        });
+                    } else {
+                        return None;
+                    }
+                } else if self.not_found_route.0 != 0
+                    && self.route_templates.contains_key(&self.not_found_route)
+                {
+                    match request {
+                        RouterNavRequest::NavigateByPath { .. } => {
+                            if self.current_route_id() != Some(self.not_found_route) {
+                                to = Some(Route::new(self.not_found_route));
+                            } else {
+                                return None;
+                            }
+                        }
+                        RouterNavRequest::ReplaceByPath { .. } => {
+                            to = Some(Route::new(self.not_found_route));
+                        }
+                        _ => {}
+                    }
+                } else {
+                    return None;
+                }
+            }
+            RouterNavRequest::NavigateByUrl { url } | RouterNavRequest::ReplaceByUrl { url } => {
+                let parsed = RouterUrl::parse(url);
+                to_url = Some(url.clone());
+                to_path = Some(parsed.path.clone());
+                return self.resolve_nav_context(
+                    cx,
+                    &match request {
+                        RouterNavRequest::NavigateByUrl { .. } => RouterNavRequest::NavigateByPath {
+                            path: parsed.path,
+                        },
+                        RouterNavRequest::ReplaceByUrl { .. } => RouterNavRequest::ReplaceByPath {
+                            path: parsed.path,
+                            clear_extras: false,
+                        },
+                        _ => return None,
+                    },
+                )
+                .map(|(mut ctx, leaving)| {
+                    ctx.kind = kind;
+                    ctx.to_url = to_url;
+                    ctx.to_path = to_path;
+                    (ctx, leaving)
+                });
+            }
+            RouterNavRequest::Back { .. } => {
+                let mut preview = self.router.clone();
+                if !preview.back() {
+                    return None;
+                }
+                to = preview.current_route().cloned();
+            }
+            RouterNavRequest::Forward { .. } => {
+                let mut preview = self.router.clone();
+                if !preview.forward() {
+                    return None;
+                }
+                to = preview.current_route().cloned();
+            }
+            RouterNavRequest::Reset { route } => {
+                if !self.route_templates.contains_key(&route.id) {
+                    return None;
+                }
+                to = Some(route.clone());
+            }
+            RouterNavRequest::SetStack { stack } => {
+                let filtered: Vec<Route> = stack
+                    .iter()
+                    .cloned()
+                    .filter(|r| self.route_templates.contains_key(&r.id))
+                    .collect();
+                if filtered.is_empty() {
+                    return None;
+                }
+                to = filtered.last().cloned();
+            }
+            RouterNavRequest::Pop => {
+                let mut preview = self.router.clone();
+                if !preview.pop() {
+                    return None;
+                }
+                to = preview.current_route().cloned();
+            }
+            RouterNavRequest::PopTo { route_id } => {
+                let mut preview = self.router.clone();
+                if !preview.pop_to(*route_id) {
+                    return None;
+                }
+                to = preview.current_route().cloned();
+            }
+            RouterNavRequest::PopToRoot => {
+                let mut preview = self.router.clone();
+                if !preview.pop_to_root() {
+                    return None;
+                }
+                to = preview.current_route().cloned();
+            }
+            #[cfg(target_arch = "wasm32")]
+            RouterNavRequest::BrowserUrlChanged { url, .. } => {
+                let parsed = RouterUrl::parse(url);
+                to_url = Some(url.clone());
+                to_path = Some(parsed.path.clone());
+                return self
+                    .resolve_nav_context(
+                        cx,
+                        &RouterNavRequest::ReplaceByPath {
+                            path: parsed.path,
+                            clear_extras: false,
+                        },
+                    )
+                    .map(|(mut ctx, leaving)| {
+                        ctx.kind = RouterNavKind::BrowserUrlChanged;
+                        ctx.to_url = to_url;
+                        ctx.to_path = to_path;
+                        (ctx, leaving)
+                    });
+            }
+        }
+
+        let leaving = match (&from, &to) {
+            (Some(from), Some(to)) => from.id != to.id,
+            (Some(_), None) => false,
+            _ => false,
+        };
+
+        Some((
+            RouterNavContext {
+                kind,
+                from,
+                to,
+                to_path,
+                to_url,
+            },
+            leaving,
+        ))
+    }
+
+    fn request_kind(request: &RouterNavRequest) -> RouterNavKind {
+        match request {
+            RouterNavRequest::Navigate { .. } | RouterNavRequest::NavigateWithTransition { .. } => {
+                RouterNavKind::Navigate
+            }
+            RouterNavRequest::Replace { .. } | RouterNavRequest::ReplaceWithTransition { .. } => {
+                RouterNavKind::Replace
+            }
+            RouterNavRequest::NavigateByPath { .. } => RouterNavKind::NavigateByPath,
+            RouterNavRequest::ReplaceByPath { .. } => RouterNavKind::ReplaceByPath,
+            RouterNavRequest::NavigateByUrl { .. } => RouterNavKind::NavigateByUrl,
+            RouterNavRequest::ReplaceByUrl { .. } => RouterNavKind::ReplaceByUrl,
+            RouterNavRequest::Back { .. } => RouterNavKind::Back,
+            RouterNavRequest::Forward { .. } => RouterNavKind::Forward,
+            RouterNavRequest::Reset { .. } => RouterNavKind::Reset,
+            RouterNavRequest::SetStack { .. } => RouterNavKind::SetStack,
+            RouterNavRequest::Pop => RouterNavKind::Pop,
+            RouterNavRequest::PopTo { .. } => RouterNavKind::PopTo,
+            RouterNavRequest::PopToRoot => RouterNavKind::PopToRoot,
+            #[cfg(target_arch = "wasm32")]
+            RouterNavRequest::BrowserUrlChanged { .. } => RouterNavKind::BrowserUrlChanged,
+        }
+    }
+
+    fn apply_guards_and_maybe_commit(
+        &mut self,
+        cx: &mut Cx,
+        mut request: RouterNavRequest,
+        mut context: RouterNavContext,
+        mut redirect_depth: u8,
+    ) -> bool {
+        loop {
+            let mut redirected = None;
+            for guard in &self.route_guards {
+                match guard(cx, &context) {
+                    RouterGuardDecision::Allow => {}
+                    RouterGuardDecision::Block => return false,
+                    RouterGuardDecision::Redirect(redirect) => {
+                        if redirect_depth >= ROUTER_MAX_REDIRECTS {
+                            log!("Router: guard redirect limit reached");
+                            return false;
+                        }
+                        redirect_depth += 1;
+                        request = Self::redirect_to_request(redirect.target, redirect.replace);
+                        let Some((next_context, _)) = self.resolve_nav_context(cx, &request) else {
+                            return false;
+                        };
+                        context = next_context;
+                        redirected = Some(());
+                        break;
+                    }
+                }
+            }
+            if redirected.is_some() {
+                continue;
+            }
+
+            if !self.route_guards_async.is_empty() {
+                return self.run_guard_async(cx, request, context, 0, redirect_depth);
+            }
+
+            return self.apply_request_bypassing_guards(cx, request);
+        }
+    }
+
+    fn run_before_leave_async(
+        &mut self,
+        cx: &mut Cx,
+        request: RouterNavRequest,
+        context: RouterNavContext,
+        start_index: usize,
+        redirect_depth: u8,
+    ) -> bool {
+        let mut idx = start_index;
+        while idx < self.before_leave_hooks_async.len() {
+            match (self.before_leave_hooks_async[idx])(cx, &context) {
+                RouterAsyncDecision::Immediate(RouterBeforeLeaveDecision::Allow) => {
+                    idx += 1;
+                }
+                RouterAsyncDecision::Immediate(RouterBeforeLeaveDecision::Block) => return false,
+                RouterAsyncDecision::Pending(rx) => {
+                    self.pending_navigation = Some(PendingNavigation {
+                        request,
+                        phase: PendingNavPhase::BeforeLeaveAsync,
+                        async_index: idx,
+                        redirect_depth,
+                        rx: PendingAsyncRx::BeforeLeave(rx),
+                    });
+                    return true;
+                }
+            }
+        }
+
+        self.apply_guards_and_maybe_commit(cx, request, context, redirect_depth)
+    }
+
+    fn run_guard_async(
+        &mut self,
+        cx: &mut Cx,
+        request: RouterNavRequest,
+        context: RouterNavContext,
+        start_index: usize,
+        redirect_depth: u8,
+    ) -> bool {
+        let mut idx = start_index;
+        while idx < self.route_guards_async.len() {
+            match (self.route_guards_async[idx])(cx, &context) {
+                RouterAsyncDecision::Immediate(RouterGuardDecision::Allow) => idx += 1,
+                RouterAsyncDecision::Immediate(RouterGuardDecision::Block) => return false,
+                RouterAsyncDecision::Immediate(RouterGuardDecision::Redirect(redirect)) => {
+                    if redirect_depth >= ROUTER_MAX_REDIRECTS {
+                        log!("Router: guard redirect limit reached");
+                        return false;
+                    }
+                    let next_request = Self::redirect_to_request(redirect.target, redirect.replace);
+                    return self.request_navigation_internal(
+                        cx,
+                        next_request,
+                        true,
+                        redirect_depth.saturating_add(1),
+                    );
+                }
+                RouterAsyncDecision::Pending(rx) => {
+                    self.pending_navigation = Some(PendingNavigation {
+                        request,
+                        phase: PendingNavPhase::GuardAsync,
+                        async_index: idx,
+                        redirect_depth,
+                        rx: PendingAsyncRx::Guard(rx),
+                    });
+                    return true;
+                }
+            }
+        }
+
+        self.apply_request_bypassing_guards(cx, request)
+    }
+
+    fn redirect_to_request(target: RouterRedirectTarget, replace: bool) -> RouterNavRequest {
+        match (target, replace) {
+            (RouterRedirectTarget::Route(route_id), false) => RouterNavRequest::Navigate { route_id },
+            (RouterRedirectTarget::Route(route_id), true) => RouterNavRequest::Replace { route_id },
+            (RouterRedirectTarget::Path(path), false) => RouterNavRequest::NavigateByPath { path },
+            (RouterRedirectTarget::Path(path), true) => RouterNavRequest::ReplaceByPath {
+                path,
+                clear_extras: true,
+            },
+            (RouterRedirectTarget::Url(url), false) => RouterNavRequest::NavigateByUrl { url },
+            (RouterRedirectTarget::Url(url), true) => RouterNavRequest::ReplaceByUrl { url },
+        }
+    }
+
+    fn apply_request_bypassing_guards(&mut self, cx: &mut Cx, request: RouterNavRequest) -> bool {
+        let prev = self.guard_bypass;
+        self.guard_bypass = true;
+        let out = match request {
+            RouterNavRequest::Navigate { route_id } => self.navigate(cx, route_id),
+            RouterNavRequest::NavigateWithTransition { route_id, transition } => {
+                self.navigate_with_transition(cx, route_id, transition)
+            }
+            RouterNavRequest::Replace { route_id } => self.replace(cx, route_id),
+            RouterNavRequest::ReplaceWithTransition { route_id, transition } => {
+                self.replace_with_transition(cx, route_id, transition)
+            }
+            RouterNavRequest::NavigateByPath { path } => self.navigate_by_path(cx, &path),
+            RouterNavRequest::ReplaceByPath { path, clear_extras } => {
+                let ok = self.replace_by_path_internal(cx, &path, clear_extras);
+                if ok {
+                    self.web_replace_current_url(cx);
+                }
+                ok
+            }
+            RouterNavRequest::NavigateByUrl { url } => self.navigate_by_url(cx, &url),
+            RouterNavRequest::ReplaceByUrl { url } => {
+                let parsed = RouterUrl::parse(&url);
+                self.ensure_web_history_initialized(cx);
+                let ok = self.replace_by_path_internal(cx, &parsed.path, false);
+                self.url_query = parsed.query;
+                self.url_hash = parsed.hash;
+                if ok {
+                    self.web_replace_current_url(cx);
+                }
+                ok
+            }
+            RouterNavRequest::Back { transition } => match transition {
+                Some(t) => self.back_with_transition(cx, t),
+                None => self.back(cx),
+            },
+            RouterNavRequest::Forward { transition } => match transition {
+                Some(t) => self.forward_with_transition(cx, t),
+                None => self.forward(cx),
+            },
+            RouterNavRequest::Reset { route } => self.reset(cx, route),
+            RouterNavRequest::SetStack { stack } => self.set_stack(cx, stack),
+            RouterNavRequest::Pop => self.pop(cx),
+            RouterNavRequest::PopTo { route_id } => self.pop_to(cx, route_id),
+            RouterNavRequest::PopToRoot => self.pop_to_root(cx),
+            #[cfg(target_arch = "wasm32")]
+            RouterNavRequest::BrowserUrlChanged { url, state_index } => {
+                self.handle_browser_url_changed(cx, &url, state_index);
+                true
+            }
+        };
+        self.guard_bypass = prev;
+        out
+    }
+
+    fn poll_pending_navigation(&mut self, cx: &mut Cx) {
+        let Some(pending) = self.pending_navigation.take() else {
+            return;
+        };
+
+        match pending {
+            PendingNavigation {
+                request,
+                phase: PendingNavPhase::BeforeLeaveAsync,
+                async_index,
+                redirect_depth,
+                rx: PendingAsyncRx::BeforeLeave(rx),
+            } => {
+                let decision = match rx.try_recv_flush() {
+                    Ok(v) => v,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        self.pending_navigation = Some(PendingNavigation {
+                            request,
+                            phase: PendingNavPhase::BeforeLeaveAsync,
+                            async_index,
+                            redirect_depth,
+                            rx: PendingAsyncRx::BeforeLeave(rx),
+                        });
+                        return;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => return,
+                };
+
+                if decision != RouterBeforeLeaveDecision::Allow {
+                    return;
+                }
+                let Some((context, _)) = self.resolve_nav_context(cx, &request) else {
+                    return;
+                };
+                let _ = self.run_before_leave_async(
+                    cx,
+                    request,
+                    context,
+                    async_index + 1,
+                    redirect_depth,
+                );
+            }
+            PendingNavigation {
+                request,
+                phase: PendingNavPhase::GuardAsync,
+                async_index,
+                redirect_depth,
+                rx: PendingAsyncRx::Guard(rx),
+            } => {
+                let decision = match rx.try_recv_flush() {
+                    Ok(v) => v,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        self.pending_navigation = Some(PendingNavigation {
+                            request,
+                            phase: PendingNavPhase::GuardAsync,
+                            async_index,
+                            redirect_depth,
+                            rx: PendingAsyncRx::Guard(rx),
+                        });
+                        return;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => return,
+                };
+
+                match decision {
+                    RouterGuardDecision::Allow => {
+                        let Some((context, _)) = self.resolve_nav_context(cx, &request) else {
+                            return;
+                        };
+                        let _ =
+                            self.run_guard_async(cx, request, context, async_index + 1, redirect_depth);
+                    }
+                    RouterGuardDecision::Block => {}
+                    RouterGuardDecision::Redirect(redirect) => {
+                        if redirect_depth >= ROUTER_MAX_REDIRECTS {
+                            log!("Router: guard redirect limit reached");
+                            return;
+                        }
+                        let next_request =
+                            Self::redirect_to_request(redirect.target, redirect.replace);
+                        let _ = self.request_navigation_internal(
+                            cx,
+                            next_request,
+                            true,
+                            redirect_depth.saturating_add(1),
+                        );
+                    }
+                }
+            }
+            pending => {
+                // Mismatched pending state; keep it around.
+                self.pending_navigation = Some(pending);
+            }
+        }
+    }
+
     pub fn navigate_by_url(&mut self, cx: &mut Cx, url: &str) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::NavigateByUrl {
+                    url: url.to_string(),
+                },
+            );
+        }
         let parsed = RouterUrl::parse(url);
         self.ensure_web_history_initialized(cx);
 
@@ -1030,6 +1669,9 @@ impl RouterWidget {
     }
 
     pub fn navigate(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Navigate { route_id });
+        }
         if self.route_templates.contains_key(&route_id) {
             self.clear_url_extras();
             let old_route = self.router.current_route().cloned();
@@ -1072,6 +1714,15 @@ impl RouterWidget {
         route_id: LiveId,
         transition: RouterTransitionSpec,
     ) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::NavigateWithTransition {
+                    route_id,
+                    transition,
+                },
+            );
+        }
         if self.route_templates.contains_key(&route_id) {
             self.clear_url_extras();
             let old_route = self.router.current_route().cloned();
@@ -1109,6 +1760,9 @@ impl RouterWidget {
     }
 
     pub fn replace(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Replace { route_id });
+        }
         if self.route_templates.contains_key(&route_id) {
             self.clear_url_extras();
             let old_route = self.router.current_route().cloned();
@@ -1151,6 +1805,15 @@ impl RouterWidget {
         route_id: LiveId,
         transition: RouterTransitionSpec,
     ) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::ReplaceWithTransition {
+                    route_id,
+                    transition,
+                },
+            );
+        }
         if self.route_templates.contains_key(&route_id) {
             self.clear_url_extras();
             let old_route = self.router.current_route().cloned();
@@ -1188,6 +1851,9 @@ impl RouterWidget {
     }
 
     pub fn back(&mut self, cx: &mut Cx) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Back { transition: None });
+        }
         let old_route = self.router.current_route().cloned();
         if self.router.back() {
             if let Some(route) = self.router.current_route().cloned() {
@@ -1226,6 +1892,14 @@ impl RouterWidget {
     }
 
     pub fn back_with_transition(&mut self, cx: &mut Cx, transition: RouterTransitionSpec) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::Back {
+                    transition: Some(transition),
+                },
+            );
+        }
         let old_route = self.router.current_route().cloned();
         if self.router.back() {
             if let Some(route) = self.router.current_route().cloned() {
@@ -1260,6 +1934,9 @@ impl RouterWidget {
     }
 
     pub fn forward(&mut self, cx: &mut Cx) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Forward { transition: None });
+        }
         let old_route = self.router.current_route().cloned();
         if self.router.forward() {
             if let Some(route) = self.router.current_route().cloned() {
@@ -1298,6 +1975,14 @@ impl RouterWidget {
         cx: &mut Cx,
         transition: RouterTransitionSpec,
     ) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::Forward {
+                    transition: Some(transition),
+                },
+            );
+        }
         let old_route = self.router.current_route().cloned();
         if self.router.forward() {
             if let Some(route) = self.router.current_route().cloned() {
@@ -1354,6 +2039,9 @@ impl RouterWidget {
     }
 
     pub fn reset(&mut self, cx: &mut Cx, route: Route) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Reset { route });
+        }
         if !self.route_templates.contains_key(&route.id) {
             log!("Router: Route template not found for {:?}", route.id);
             return false;
@@ -1393,6 +2081,9 @@ impl RouterWidget {
     }
 
     pub fn pop(&mut self, cx: &mut Cx) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::Pop);
+        }
         let old_route = self.router.current_route().cloned();
         if self.router.pop() {
             if let Some(new_route) = self.router.current_route().cloned() {
@@ -1420,6 +2111,9 @@ impl RouterWidget {
     }
 
     pub fn pop_to(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::PopTo { route_id });
+        }
         let before_depth = self.router.depth() as i32;
         let old_route = self.router.current_route().cloned();
         if self.router.pop_to(route_id) {
@@ -1452,6 +2146,9 @@ impl RouterWidget {
     }
 
     pub fn pop_to_root(&mut self, cx: &mut Cx) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::PopToRoot);
+        }
         let before_depth = self.router.depth() as i32;
         let old_route = self.router.current_route().cloned();
         if self.router.pop_to_root() {
@@ -1484,6 +2181,9 @@ impl RouterWidget {
     }
 
     pub fn set_stack(&mut self, cx: &mut Cx, stack: Vec<Route>) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(cx, RouterNavRequest::SetStack { stack });
+        }
         let filtered: Vec<Route> = stack
             .into_iter()
             .filter(|r| self.route_templates.contains_key(&r.id))
@@ -1522,6 +2222,14 @@ impl RouterWidget {
 
     /// Navigate by path string
     pub fn navigate_by_path(&mut self, cx: &mut Cx, path: &str) -> bool {
+        if !self.guard_bypass {
+            return self.request_navigation(
+                cx,
+                RouterNavRequest::NavigateByPath {
+                    path: path.to_string(),
+                },
+            );
+        }
         let ok = self.navigate_by_path_internal(cx, path, true);
         if ok {
             self.web_push_current_url(cx);
@@ -1819,6 +2527,40 @@ impl RouterWidget {
         self.route_change_callbacks.push(Box::new(callback));
     }
 
+    pub fn add_route_guard<F>(&mut self, guard: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterGuardDecision + Send + Sync + 'static,
+    {
+        self.route_guards.push(Box::new(guard));
+    }
+
+    pub fn add_route_guard_async<F>(&mut self, guard: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterGuardDecision>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.route_guards_async.push(Box::new(guard));
+    }
+
+    pub fn add_before_leave_hook<F>(&mut self, hook: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterBeforeLeaveDecision + Send + Sync + 'static,
+    {
+        self.before_leave_hooks.push(Box::new(hook));
+    }
+
+    pub fn add_before_leave_hook_async<F>(&mut self, hook: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterBeforeLeaveDecision>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.before_leave_hooks_async.push(Box::new(hook));
+    }
+
     /// Automatically detect and register child routers in route widgets.
     ///
     /// We scan the Live DSL for nested `RouterWidget` instances (and their widget-id paths) in
@@ -2057,6 +2799,7 @@ impl Widget for RouterWidget {
         }
 
         // Nested routers have `url_sync` disabled; sync the full (composed) URL from here.
+        self.poll_pending_navigation(cx);
         self.sync_web_url_if_needed(cx);
     }
 
@@ -2501,6 +3244,48 @@ impl RouterWidgetRef {
     {
         if let Some(mut inner) = self.borrow_mut() {
             inner.on_route_change(callback);
+        }
+    }
+
+    pub fn add_route_guard<F>(&self, guard: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterGuardDecision + Send + Sync + 'static,
+    {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.add_route_guard(guard);
+        }
+    }
+
+    pub fn add_route_guard_async<F>(&self, guard: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterGuardDecision>
+            + Send
+            + Sync
+            + 'static,
+    {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.add_route_guard_async(guard);
+        }
+    }
+
+    pub fn add_before_leave_hook<F>(&self, hook: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterBeforeLeaveDecision + Send + Sync + 'static,
+    {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.add_before_leave_hook(hook);
+        }
+    }
+
+    pub fn add_before_leave_hook_async<F>(&self, hook: F)
+    where
+        F: Fn(&mut Cx, &RouterNavContext) -> RouterAsyncDecision<RouterBeforeLeaveDecision>
+            + Send
+            + Sync
+            + 'static,
+    {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.add_before_leave_hook_async(hook);
         }
     }
 

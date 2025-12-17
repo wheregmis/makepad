@@ -20,8 +20,8 @@
 - [x] Add `navigate_by_url(url)` and `current_url()` helpers.
 
 ### Phase 5: Guards, Redirects, Middleware
-- [ ] Route guards (sync + async) for auth/feature flags; redirect/replace behaviors.
-- [ ] “Before leave” confirmation hooks.
+- [x] Route guards (sync + async) for auth/feature flags; redirect/replace behaviors.
+- [x] “Before leave” confirmation hooks.
 
 ### Phase 6: State + Data
 - [ ] Typed params/query support (keep current `LiveId` path, add string map for query).
