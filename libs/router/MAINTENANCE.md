@@ -41,8 +41,9 @@ Currently covered:
    - `widget/transitions.rs` and `widget/url_sync.rs` are already extracted.
    - `widget/nested.rs` is already extracted.
    - `widget/guard_flow.rs` is already extracted.
+   - `widget/hero_render.rs` is already extracted.
    - Next candidates:
-     - `widget/hero.rs` (hero pairing + shared element transition driving)
+      - `widget/hero.rs` (hero pairing + shared element transition driving)
 
 2. **Reduce cross-module coupling**
    - Keep `Router` and `RouteRegistry` free of `makepad_widgets` types.
