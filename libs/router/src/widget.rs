@@ -2,10 +2,76 @@ use crate::{route::{Route, RouteParams, RoutePattern}, router::{Router, RouteReg
 use makepad_widgets::*;
 
 live_design! {
-    pub RouterWidgetBase = {{RouterWidget}} {}
+    pub RouterWidgetBase = {{RouterWidget}} {
+        flow: Overlay
+        clip_x: true
+        clip_y: true
+
+        // Phase 3: transitions/animations (default off).
+        push_transition: none
+        pop_transition: none
+        replace_transition: none
+        transition_duration: 0.25
+    }
     pub RouterWidget = <RouterWidgetBase> {
         width: Fill, height: Fill
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RouterTransitionPreset {
+    None,
+    Fade,
+    SlideLeft,
+    SlideRight,
+    Scale,
+    SharedAxis,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RouterTransitionDirection {
+    Forward,
+    Backward,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RouterActionKind {
+    Push,
+    Pop,
+    Replace,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct RouterTransitionSpec {
+    pub preset: RouterTransitionPreset,
+    pub duration: f64,
+}
+
+impl RouterTransitionSpec {
+    pub fn none() -> Self {
+        Self {
+            preset: RouterTransitionPreset::None,
+            duration: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RouterTransitionState {
+    from_route: LiveId,
+    to_route: LiveId,
+    preset: RouterTransitionPreset,
+    direction: RouterTransitionDirection,
+    start_time: Option<f64>,
+    duration: f64,
+    progress: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TransitionEffect {
+    abs_pos: Vec2d,
+    view_transform: Mat4f,
+    view_opacity: f32,
 }
 
 /// Router widget for managing navigation between pages
@@ -25,6 +91,18 @@ pub struct RouterWidget {
     not_found_route: LiveId,
     #[live(false)]
     persist_state: bool,
+    /// Default transition used for push/navigate.
+    #[live]
+    push_transition: LiveId,
+    /// Default transition used for back/pop.
+    #[live]
+    pop_transition: LiveId,
+    /// Default transition used for replace/reset/set_stack.
+    #[live]
+    replace_transition: LiveId,
+    /// Default transition duration (seconds).
+    #[live(0.25)]
+    transition_duration: f64,
     #[rust]
     router: Router,
     #[rust]
@@ -36,11 +114,23 @@ pub struct RouterWidget {
     #[rust]
     route_patterns: ComponentMap<LiveId, String>,
     #[rust]
+    route_transition_overrides: ComponentMap<LiveId, LiveId>,
+    #[rust]
+    route_transition_duration_overrides: ComponentMap<LiveId, f64>,
+    #[rust]
     child_router_paths: ComponentMap<LiveId, Vec<Vec<LiveId>>>,
     #[rust]
     route_change_callbacks: Vec<Box<dyn Fn(&mut Cx, Option<Route>, Route) + Send + Sync>>,
     #[rust]
     pending_actions: Vec<RouterAction>,
+    #[rust(DrawList2d::new(cx))]
+    from_draw_list: DrawList2d,
+    #[rust(DrawList2d::new(cx))]
+    to_draw_list: DrawList2d,
+    #[rust]
+    transition: Option<RouterTransitionState>,
+    #[rust]
+    transition_next_frame: NextFrame,
 }
 
 impl LiveHook for RouterWidget {
@@ -54,9 +144,12 @@ impl LiveHook for RouterWidget {
         if let ApplyFrom::UpdateFromDoc { .. } = apply.from {
             self.route_templates.clear();
             self.route_patterns.clear();
+            self.route_transition_overrides.clear();
+            self.route_transition_duration_overrides.clear();
             self.child_router_paths.clear();
             self.child_routers.clear();
             self.router.route_registry = RouteRegistry::default();
+            self.transition = None;
         }
     }
 
@@ -89,14 +182,26 @@ impl LiveHook for RouterWidget {
                                         index,
                                         LiveProp(live_id!(route_pattern), LivePropType::Field),
                                     );
+                                    let route_transition_idx = nodes.child_by_name(
+                                        index,
+                                        LiveProp(live_id!(route_transition), LivePropType::Field),
+                                    );
+                                    let route_transition_duration_idx = nodes.child_by_name(
+                                        index,
+                                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+                                    );
                                     apply.override_from(ApplyFrom::NewFromDoc { file_id }, |apply| {
-                                        Self::apply_widget_silencing_route_pattern(
+                                        Self::apply_widget_silencing_route_metadata(
                                             cx,
                                             apply,
                                             index,
                                             nodes,
                                             &mut widget,
-                                            route_pattern_idx,
+                                            &[
+                                                route_pattern_idx,
+                                                route_transition_idx,
+                                                route_transition_duration_idx,
+                                            ],
                                         );
                                     });
                                     nodes.skip_node(index)
@@ -151,6 +256,39 @@ impl LiveHook for RouterWidget {
                         }
                     }
 
+                    // Optional per-route transition override (DSL metadata).
+                    if let Some(transition_node_idx) = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_transition), LivePropType::Field),
+                    ) {
+                        let transition_node = &nodes[transition_node_idx];
+                        let transition_id = match &transition_node.value {
+                            LiveValue::Id(id) => *id,
+                            LiveValue::Str(s) => LiveId::from_str(s),
+                            LiveValue::String(s) => LiveId::from_str(s.as_str()),
+                            _ => LiveId(0),
+                        };
+                        if transition_id.0 != 0 {
+                            self.route_transition_overrides.insert(id, transition_id);
+                        }
+                    }
+
+                    if let Some(duration_node_idx) = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+                    ) {
+                        let duration_node = &nodes[duration_node_idx];
+                        let duration = match &duration_node.value {
+                            LiveValue::Float64(v) => Some(*v),
+                            LiveValue::Float32(v) => Some(*v as f64),
+                            LiveValue::Int64(v) => Some(*v as f64),
+                            _ => None,
+                        };
+                        if let Some(duration) = duration {
+                            self.route_transition_duration_overrides.insert(id, duration);
+                        }
+                    }
+
                     // Scan for nested RouterWidget instances inside this route.
                     self.child_router_paths
                         .insert(id, Self::collect_child_router_paths(index, nodes));
@@ -158,14 +296,31 @@ impl LiveHook for RouterWidget {
                     // Create/update the route widget instance. We silence `route_pattern` by marking
                     // it as a prefixed property before applying, so it is ignored by the default
                     // `apply_value_unknown` handler (no noisy "no matching field" warning).
-                    let route_pattern_idx =
-                        nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field));
+                    let route_pattern_idx = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_pattern), LivePropType::Field),
+                    );
+                    let route_transition_idx = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_transition), LivePropType::Field),
+                    );
+                    let route_transition_duration_idx = nodes.child_by_name(
+                        index,
+                        LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+                    );
 
                     let widget = self
                         .route_widgets
                         .get_or_insert(cx, id, |_cx| WidgetRef::empty());
 
-                    Self::apply_widget_silencing_route_pattern(cx, apply, index, nodes, widget, route_pattern_idx);
+                    Self::apply_widget_silencing_route_metadata(
+                        cx,
+                        apply,
+                        index,
+                        nodes,
+                        widget,
+                        &[route_pattern_idx, route_transition_idx, route_transition_duration_idx],
+                    );
                 } else {
                     cx.apply_error_no_matching_field(live_error_origin!(), index, nodes);
                 }
@@ -240,14 +395,20 @@ impl RouterWidget {
         cx.get_nodes_from_live_ptr(ptr, |cx, file_id, index, nodes| {
             let route_pattern_idx =
                 nodes.child_by_name(index, LiveProp(live_id!(route_pattern), LivePropType::Field));
+            let route_transition_idx =
+                nodes.child_by_name(index, LiveProp(live_id!(route_transition), LivePropType::Field));
+            let route_transition_duration_idx = nodes.child_by_name(
+                index,
+                LiveProp(live_id!(route_transition_duration), LivePropType::Field),
+            );
             let mut apply = ApplyFrom::NewFromDoc { file_id }.into();
-            Self::apply_widget_silencing_route_pattern(
+            Self::apply_widget_silencing_route_metadata(
                 cx,
                 &mut apply,
                 index,
                 nodes,
                 &mut widget,
-                route_pattern_idx,
+                &[route_pattern_idx, route_transition_idx, route_transition_duration_idx],
             );
             nodes.skip_node(index)
         });
@@ -265,6 +426,243 @@ impl RouterWidget {
             .get_or_insert(cx, route_id, |cx| Self::new_route_widget_from_ptr(cx, ptr));
     }
 
+    fn transition_preset_from_live_id(id: LiveId) -> RouterTransitionPreset {
+        match id {
+            x if x == live_id!(none) || x == live_id!(None) => RouterTransitionPreset::None,
+            x if x == live_id!(fade) || x == live_id!(Fade) => RouterTransitionPreset::Fade,
+            x if x == live_id!(slide_left) || x == live_id!(SlideLeft) => RouterTransitionPreset::SlideLeft,
+            x if x == live_id!(slide_right) || x == live_id!(SlideRight) => RouterTransitionPreset::SlideRight,
+            x if x == live_id!(scale) || x == live_id!(Scale) => RouterTransitionPreset::Scale,
+            x if x == live_id!(shared_axis) || x == live_id!(SharedAxis) => {
+                RouterTransitionPreset::SharedAxis
+            }
+            _ => RouterTransitionPreset::None,
+        }
+    }
+
+    fn route_transition_spec(&self, route_id: LiveId) -> Option<RouterTransitionSpec> {
+        let preset_id = self.route_transition_overrides.get(&route_id).copied()?;
+        let preset = Self::transition_preset_from_live_id(preset_id);
+        let duration = self
+            .route_transition_duration_overrides
+            .get(&route_id)
+            .copied()
+            .unwrap_or(self.transition_duration);
+        Some(RouterTransitionSpec { preset, duration })
+    }
+
+    fn default_transition_spec(&self, kind: RouterActionKind) -> RouterTransitionSpec {
+        let preset_id = match kind {
+            RouterActionKind::Push => self.push_transition,
+            RouterActionKind::Pop => self.pop_transition,
+            RouterActionKind::Replace => self.replace_transition,
+        };
+        let preset = Self::transition_preset_from_live_id(preset_id);
+        if preset == RouterTransitionPreset::None {
+            return RouterTransitionSpec::none();
+        }
+        RouterTransitionSpec {
+            preset,
+            duration: self.transition_duration,
+        }
+    }
+
+    fn start_transition(
+        &mut self,
+        cx: &mut Cx,
+        from_route: Option<LiveId>,
+        to_route: LiveId,
+        kind: RouterActionKind,
+        direction: RouterTransitionDirection,
+        override_spec: Option<RouterTransitionSpec>,
+    ) {
+        let Some(from_route) = from_route else {
+            self.transition = None;
+            return;
+        };
+        if from_route == to_route {
+            self.transition = None;
+            return;
+        }
+
+        let mut spec = override_spec
+            .or_else(|| self.route_transition_spec(to_route))
+            .unwrap_or_else(|| self.default_transition_spec(kind));
+
+        if spec.preset == RouterTransitionPreset::None {
+            self.transition = None;
+            return;
+        }
+
+        if !spec.duration.is_finite() || spec.duration <= 0.0 {
+            spec.duration = self.transition_duration.max(0.000_1);
+        }
+
+        self.transition = Some(RouterTransitionState {
+            from_route,
+            to_route,
+            preset: spec.preset,
+            direction,
+            start_time: None,
+            duration: spec.duration,
+            progress: 0.0,
+        });
+        self.transition_next_frame = cx.new_next_frame();
+        self.redraw(cx);
+    }
+
+    fn update_transition(&mut self, cx: &mut Cx, time: f64) {
+        let Some(state) = &mut self.transition else {
+            return;
+        };
+        let start = state.start_time.get_or_insert(time);
+        let elapsed = (time - *start).max(0.0);
+        let mut t = elapsed / state.duration.max(0.000_1);
+        if t >= 1.0 {
+            t = 1.0;
+        }
+        state.progress = t;
+
+        if t < 1.0 {
+            self.transition_next_frame = cx.new_next_frame();
+        } else {
+            self.transition = None;
+        }
+        self.redraw(cx);
+    }
+
+    fn ease_in_out(t: f64) -> f64 {
+        let t = t.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    }
+
+    fn compute_effect(
+        preset: RouterTransitionPreset,
+        direction: RouterTransitionDirection,
+        t: f64,
+        is_to: bool,
+        rect: Rect,
+    ) -> TransitionEffect {
+        let t = Self::ease_in_out(t);
+
+        let mut opacity_from = 1.0f32;
+        let mut opacity_to = 1.0f32;
+        let mut pos_from = rect.pos;
+        let mut pos_to = rect.pos;
+        let mut transform_from = Mat4f::identity();
+        let mut transform_to = Mat4f::identity();
+
+        match preset {
+            RouterTransitionPreset::None => {}
+            RouterTransitionPreset::Fade => {
+                opacity_from = (1.0 - t) as f32;
+                opacity_to = t as f32;
+            }
+            RouterTransitionPreset::SlideLeft => {
+                pos_from.x += -(rect.size.x * t);
+                pos_to.x += rect.size.x * (1.0 - t);
+            }
+            RouterTransitionPreset::SlideRight => {
+                pos_from.x += rect.size.x * t;
+                pos_to.x += -(rect.size.x * (1.0 - t));
+            }
+            RouterTransitionPreset::Scale => {
+                opacity_from = (1.0 - t) as f32;
+                opacity_to = t as f32;
+
+                let center_x = (rect.pos.x + rect.size.x * 0.5) as f32;
+                let center_y = (rect.pos.y + rect.size.y * 0.5) as f32;
+                let from_s = (1.0 - 0.05 * t) as f32;
+                let to_s = (0.95 + 0.05 * t) as f32;
+                transform_from = Mat4f::mul(
+                    &Mat4f::mul(
+                        &Mat4f::translation(vec3(center_x, center_y, 0.0)),
+                        &Mat4f::scale(from_s),
+                    ),
+                    &Mat4f::translation(vec3(-center_x, -center_y, 0.0)),
+                );
+                transform_to = Mat4f::mul(
+                    &Mat4f::mul(
+                        &Mat4f::translation(vec3(center_x, center_y, 0.0)),
+                        &Mat4f::scale(to_s),
+                    ),
+                    &Mat4f::translation(vec3(-center_x, -center_y, 0.0)),
+                );
+            }
+            RouterTransitionPreset::SharedAxis => {
+                opacity_from = (1.0 - t) as f32;
+                opacity_to = t as f32;
+
+                let dir = match direction {
+                    RouterTransitionDirection::Forward => 1.0f32,
+                    RouterTransitionDirection::Backward => -1.0f32,
+                };
+                pos_from.x += -(rect.size.x * 0.2) * t * (dir as f64);
+                pos_to.x += (rect.size.x * 0.2) * (1.0 - t) * (dir as f64);
+
+                let center_x = (rect.pos.x + rect.size.x * 0.5) as f32;
+                let center_y = (rect.pos.y + rect.size.y * 0.5) as f32;
+                let from_s = (1.0 - 0.02 * t) as f32;
+                let to_s = (0.92 + 0.08 * t) as f32;
+                transform_from = Mat4f::mul(
+                    &Mat4f::mul(
+                        &Mat4f::translation(vec3(center_x, center_y, 0.0)),
+                        &Mat4f::scale(from_s),
+                    ),
+                    &Mat4f::translation(vec3(-center_x, -center_y, 0.0)),
+                );
+                transform_to = Mat4f::mul(
+                    &Mat4f::mul(
+                        &Mat4f::translation(vec3(center_x, center_y, 0.0)),
+                        &Mat4f::scale(to_s),
+                    ),
+                    &Mat4f::translation(vec3(-center_x, -center_y, 0.0)),
+                );
+            }
+        }
+
+        let (abs_pos, view_transform, view_opacity) = if is_to {
+            (pos_to, transform_to, opacity_to)
+        } else {
+            (pos_from, transform_from, opacity_from)
+        };
+
+        TransitionEffect {
+            abs_pos,
+            view_transform,
+            view_opacity,
+        }
+    }
+
+    fn draw_route_into_draw_list(
+        cx: &mut Cx2d,
+        scope: &mut Scope,
+        draw_list: &mut DrawList2d,
+        route_widgets: &mut ComponentMap<LiveId, WidgetRef>,
+        route_id: LiveId,
+        effect: TransitionEffect,
+    ) {
+        let walk = Walk::fill();
+        if draw_list.begin(cx, walk).is_not_redrawing() {
+            cx.walk_turtle(walk);
+            return;
+        }
+
+        let draw_list_id = draw_list.id();
+        {
+            let dl = &mut cx.cx.cx.draw_lists[draw_list_id];
+            dl.draw_list_uniforms.view_shift = vec2(0.0, 0.0);
+            dl.draw_list_uniforms.view_transform = effect.view_transform;
+            dl.draw_list_uniforms.view_opacity = effect.view_opacity;
+        }
+
+        if let Some(widget) = route_widgets.get_mut(&route_id) {
+            let _ = widget.draw_walk(cx, scope, Walk::fill().with_abs_pos(effect.abs_pos));
+        }
+
+        draw_list.end(cx);
+    }
+
     pub fn navigate(&mut self, cx: &mut Cx, route_id: LiveId) -> bool {
         if self.route_templates.contains_key(&route_id) {
             let old_route = self.router.current_route().cloned();
@@ -272,6 +670,54 @@ impl RouterWidget {
             self.active_route = route_id;
 
             self.ensure_route_widget(cx, route_id);
+            self.start_transition(
+                cx,
+                old_route.as_ref().map(|r| r.id),
+                route_id,
+                RouterActionKind::Push,
+                RouterTransitionDirection::Forward,
+                None,
+            );
+
+            if let Some(new_route) = self.router.current_route().cloned() {
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(
+                    Some(RouterAction::Navigate(new_route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &new_route,
+                );
+            }
+
+            self.redraw(cx);
+            true
+        } else {
+            log!("Router: Route template not found for {:?}", route_id);
+            false
+        }
+    }
+
+    pub fn navigate_with_transition(
+        &mut self,
+        cx: &mut Cx,
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    ) -> bool {
+        if self.route_templates.contains_key(&route_id) {
+            let old_route = self.router.current_route().cloned();
+            self.router.navigate_to(route_id);
+            self.active_route = route_id;
+
+            self.ensure_route_widget(cx, route_id);
+            self.start_transition(
+                cx,
+                old_route.as_ref().map(|r| r.id),
+                route_id,
+                RouterActionKind::Push,
+                RouterTransitionDirection::Forward,
+                Some(transition),
+            );
 
             if let Some(new_route) = self.router.current_route().cloned() {
                 for callback in &self.route_change_callbacks {
@@ -299,6 +745,54 @@ impl RouterWidget {
             self.active_route = route_id;
 
             self.ensure_route_widget(cx, route_id);
+            self.start_transition(
+                cx,
+                old_route.as_ref().map(|r| r.id),
+                route_id,
+                RouterActionKind::Replace,
+                RouterTransitionDirection::Forward,
+                None,
+            );
+
+            if let Some(new_route) = self.router.current_route().cloned() {
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), new_route.clone());
+                }
+                self.queue_route_actions(
+                    Some(RouterAction::Replace(new_route.clone())),
+                    old_route.as_ref().map(|r| r.id),
+                    &new_route,
+                );
+            }
+
+            self.redraw(cx);
+            true
+        } else {
+            log!("Router: Route template not found for {:?}", route_id);
+            false
+        }
+    }
+
+    pub fn replace_with_transition(
+        &mut self,
+        cx: &mut Cx,
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    ) -> bool {
+        if self.route_templates.contains_key(&route_id) {
+            let old_route = self.router.current_route().cloned();
+            self.router.replace_with(route_id);
+            self.active_route = route_id;
+
+            self.ensure_route_widget(cx, route_id);
+            self.start_transition(
+                cx,
+                old_route.as_ref().map(|r| r.id),
+                route_id,
+                RouterActionKind::Replace,
+                RouterTransitionDirection::Forward,
+                Some(transition),
+            );
 
             if let Some(new_route) = self.router.current_route().cloned() {
                 for callback in &self.route_change_callbacks {
@@ -324,6 +818,14 @@ impl RouterWidget {
         if self.router.back() {
             if let Some(route) = self.router.current_route().cloned() {
                 self.active_route = route.id;
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Pop,
+                    RouterTransitionDirection::Backward,
+                    None,
+                );
                 
                 // Trigger route change callbacks
                 for callback in &self.route_change_callbacks {
@@ -347,11 +849,87 @@ impl RouterWidget {
         }
     }
 
+    pub fn back_with_transition(&mut self, cx: &mut Cx, transition: RouterTransitionSpec) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.back() {
+            if let Some(route) = self.router.current_route().cloned() {
+                self.active_route = route.id;
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Pop,
+                    RouterTransitionDirection::Backward,
+                    Some(transition),
+                );
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), route.clone());
+                }
+                self.ensure_route_widget(cx, route.id);
+                self.queue_route_actions(
+                    Some(RouterAction::Back),
+                    old_route.as_ref().map(|r| r.id),
+                    &route,
+                );
+                self.redraw(cx);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     pub fn forward(&mut self, cx: &mut Cx) -> bool {
         let old_route = self.router.current_route().cloned();
         if self.router.forward() {
             if let Some(route) = self.router.current_route().cloned() {
                 self.active_route = route.id;
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Push,
+                    RouterTransitionDirection::Forward,
+                    None,
+                );
+                for callback in &self.route_change_callbacks {
+                    callback(cx, old_route.clone(), route.clone());
+                }
+                self.ensure_route_widget(cx, route.id);
+                self.queue_route_actions(
+                    Some(RouterAction::Forward),
+                    old_route.as_ref().map(|r| r.id),
+                    &route,
+                );
+                self.redraw(cx);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn forward_with_transition(
+        &mut self,
+        cx: &mut Cx,
+        transition: RouterTransitionSpec,
+    ) -> bool {
+        let old_route = self.router.current_route().cloned();
+        if self.router.forward() {
+            if let Some(route) = self.router.current_route().cloned() {
+                self.active_route = route.id;
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Push,
+                    RouterTransitionDirection::Forward,
+                    Some(transition),
+                );
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), route.clone());
                 }
@@ -401,6 +979,14 @@ impl RouterWidget {
         self.router.reset(route.clone());
         self.active_route = route.id;
         self.ensure_route_widget(cx, route.id);
+        self.start_transition(
+            cx,
+            old_route.as_ref().map(|r| r.id),
+            route.id,
+            RouterActionKind::Replace,
+            RouterTransitionDirection::Forward,
+            None,
+        );
 
         if let Some(new_route) = self.router.current_route().cloned() {
             for callback in &self.route_change_callbacks {
@@ -427,6 +1013,14 @@ impl RouterWidget {
             if let Some(new_route) = self.router.current_route().cloned() {
                 self.active_route = new_route.id;
                 self.ensure_route_widget(cx, new_route.id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    new_route.id,
+                    RouterActionKind::Pop,
+                    RouterTransitionDirection::Backward,
+                    None,
+                );
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), new_route.clone());
                 }
@@ -444,6 +1038,14 @@ impl RouterWidget {
             if let Some(new_route) = self.router.current_route().cloned() {
                 self.active_route = new_route.id;
                 self.ensure_route_widget(cx, new_route.id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    new_route.id,
+                    RouterActionKind::Pop,
+                    RouterTransitionDirection::Backward,
+                    None,
+                );
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), new_route.clone());
                 }
@@ -461,6 +1063,14 @@ impl RouterWidget {
             if let Some(new_route) = self.router.current_route().cloned() {
                 self.active_route = new_route.id;
                 self.ensure_route_widget(cx, new_route.id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    new_route.id,
+                    RouterActionKind::Pop,
+                    RouterTransitionDirection::Backward,
+                    None,
+                );
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), new_route.clone());
                 }
@@ -485,6 +1095,14 @@ impl RouterWidget {
         let Some(new_route) = self.router.current_route().cloned() else { return false };
         self.active_route = new_route.id;
         self.ensure_route_widget(cx, new_route.id);
+        self.start_transition(
+            cx,
+            old_route.as_ref().map(|r| r.id),
+            new_route.id,
+            RouterActionKind::Replace,
+            RouterTransitionDirection::Forward,
+            None,
+        );
         for callback in &self.route_change_callbacks {
             callback(cx, old_route.clone(), new_route.clone());
         }
@@ -507,6 +1125,14 @@ impl RouterWidget {
                 self.active_route = route.id;
 
                 self.ensure_route_widget(cx, route.id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Push,
+                    RouterTransitionDirection::Forward,
+                    None,
+                );
 
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), route.clone());
@@ -543,6 +1169,14 @@ impl RouterWidget {
                 self.router.navigate(parent_route.clone());
                 self.active_route = route_id;
                 self.ensure_route_widget(cx, route_id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route_id,
+                    RouterActionKind::Push,
+                    RouterTransitionDirection::Forward,
+                    None,
+                );
 
                 for callback in &self.route_change_callbacks {
                     callback(cx, old_route.clone(), parent_route.clone());
@@ -585,30 +1219,33 @@ impl RouterWidget {
         Ok(())
     }
 
-    /// Apply a route widget while silencing the `route_pattern` DSL metadata.
+    /// Apply a route widget while silencing router-only DSL metadata.
     ///
-    /// `route_pattern` is a router-level metadata field, not a property of the route page widgets.
+    /// `route_pattern` / `route_transition` / `route_transition_duration` are router-level metadata
+    /// fields, not properties of the route page widgets.
     /// The Live apply system forwards all instance children into the instantiated widget. Instead
     /// of attempting to surgically re-run the apply process without this field (which would require
     /// reconstructing parts of the apply engine), we mark the node as "prefixed". The default
     /// `LiveHook::apply_value_unknown` handler does not warn on prefixed unknown properties, so the
     /// page widget ignores it without logging.
-    fn apply_widget_silencing_route_pattern(
+    fn apply_widget_silencing_route_metadata(
         cx: &mut Cx,
         apply: &mut Apply,
         instance_index: usize,
         nodes: &[LiveNode],
         widget: &mut WidgetRef,
-        route_pattern_idx: Option<usize>,
+        silence_node_indices: &[Option<usize>],
     ) {
-        if let Some(pattern_idx) = route_pattern_idx {
-            let mut patched_nodes = nodes.to_vec();
-            patched_nodes[pattern_idx].origin =
-                patched_nodes[pattern_idx].origin.with_node_has_prefix(true);
-            widget.apply(cx, apply, instance_index, &patched_nodes);
-        } else {
+        if silence_node_indices.iter().all(|i| i.is_none()) {
             widget.apply(cx, apply, instance_index, nodes);
+            return;
         }
+
+        let mut patched_nodes = nodes.to_vec();
+        for idx in silence_node_indices.iter().flatten().copied() {
+            patched_nodes[idx].origin = patched_nodes[idx].origin.with_node_has_prefix(true);
+        }
+        widget.apply(cx, apply, instance_index, &patched_nodes);
     }
 
     /// Register a route change callback
@@ -696,13 +1333,19 @@ impl RouterWidget {
         if path.is_empty() {
             // Navigate in current router
             if self.route_templates.contains_key(&route.id) {
+                let old_route = self.router.current_route().cloned();
                 self.router.navigate(route.clone());
                 self.active_route = route.id;
 
-                if let Some(ptr) = self.route_templates.get(&route.id) {
-                    self.route_widgets
-                        .get_or_insert(cx, route.id, |cx| WidgetRef::new_from_ptr(cx, Some(*ptr)));
-                }
+                self.ensure_route_widget(cx, route.id);
+                self.start_transition(
+                    cx,
+                    old_route.as_ref().map(|r| r.id),
+                    route.id,
+                    RouterActionKind::Push,
+                    RouterTransitionDirection::Forward,
+                    None,
+                );
 
                 self.redraw(cx);
                 return true;
@@ -736,7 +1379,9 @@ impl WidgetNode for RouterWidget {
     }
 
     fn redraw(&mut self, cx: &mut Cx) {
-        self.area.redraw(cx)
+        self.from_draw_list.redraw(cx);
+        self.to_draw_list.redraw(cx);
+        self.area.redraw(cx);
     }
 
     fn find_widgets(&self, path: &[LiveId], cached: WidgetCache, results: &mut WidgetSet) {
@@ -797,6 +1442,9 @@ impl WidgetNode for RouterWidget {
 
 impl Widget for RouterWidget {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
+        if let Some(ne) = self.transition_next_frame.is_event(event) {
+            self.update_transition(cx, ne.time);
+        }
         self.flush_router_actions(cx, scope);
         let uid = self.widget_uid();
 
@@ -815,31 +1463,58 @@ impl Widget for RouterWidget {
                 widget.handle_event(cx, event, scope);
             }
         }
-
-        // Handle events for child router if active route has one
-        if let Some(child_router) = self.child_routers.get_mut(&self.active_route) {
-            if let Some(mut child) = child_router.borrow_mut() {
-                let child_uid = child.widget_uid();
-                // Group actions for the child router so they're properly scoped
-                cx.group_widget_actions(uid, child_uid, |cx| {
-                    child.handle_event(cx, event, scope)
-                });
-            }
-        }
     }
 
     fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
-        cx.begin_turtle(walk, self.layout);
+        let mut layout = self.layout;
+        layout.flow = Flow::Overlay;
+        layout.clip_x = true;
+        layout.clip_y = true;
+        cx.begin_turtle(walk, layout);
 
-        if let Some(widget) = self.route_widgets.get_mut(&self.active_route) {
-            widget.draw_all(cx, scope);
-        }
+        let rect = cx.turtle().inner_rect();
 
-        // Draw child routers if active route has one
-        if let Some(child_router) = self.child_routers.get(&self.active_route) {
-            if let Some(mut child) = child_router.borrow_mut() {
-                child.draw_all(cx, scope);
-            }
+        if let Some(state) = self.transition.clone() {
+            let from_effect = Self::compute_effect(
+                state.preset,
+                state.direction,
+                state.progress,
+                false,
+                rect,
+            );
+            let to_effect =
+                Self::compute_effect(state.preset, state.direction, state.progress, true, rect);
+
+            Self::draw_route_into_draw_list(
+                cx,
+                scope,
+                &mut self.from_draw_list,
+                &mut self.route_widgets,
+                state.from_route,
+                from_effect,
+            );
+            Self::draw_route_into_draw_list(
+                cx,
+                scope,
+                &mut self.to_draw_list,
+                &mut self.route_widgets,
+                state.to_route,
+                to_effect,
+            );
+        } else {
+            let effect = TransitionEffect {
+                abs_pos: rect.pos,
+                view_transform: Mat4f::identity(),
+                view_opacity: 1.0,
+            };
+            Self::draw_route_into_draw_list(
+                cx,
+                scope,
+                &mut self.to_draw_list,
+                &mut self.route_widgets,
+                self.active_route,
+                effect,
+            );
         }
 
         cx.end_turtle_with_area(&mut self.area);
@@ -863,9 +1538,30 @@ impl RouterWidgetRef {
         }
     }
 
+    pub fn navigate_with_transition(
+        &self,
+        cx: &mut Cx,
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    ) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.navigate_with_transition(cx, route_id, transition)
+        } else {
+            false
+        }
+    }
+
     pub fn back(&self, cx: &mut Cx) -> bool {
         if let Some(mut inner) = self.borrow_mut() {
             inner.back(cx)
+        } else {
+            false
+        }
+    }
+
+    pub fn back_with_transition(&self, cx: &mut Cx, transition: RouterTransitionSpec) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.back_with_transition(cx, transition)
         } else {
             false
         }
@@ -879,9 +1575,30 @@ impl RouterWidgetRef {
         }
     }
 
+    pub fn replace_with_transition(
+        &self,
+        cx: &mut Cx,
+        route_id: LiveId,
+        transition: RouterTransitionSpec,
+    ) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.replace_with_transition(cx, route_id, transition)
+        } else {
+            false
+        }
+    }
+
     pub fn forward(&self, cx: &mut Cx) -> bool {
         if let Some(mut inner) = self.borrow_mut() {
             inner.forward(cx)
+        } else {
+            false
+        }
+    }
+
+    pub fn forward_with_transition(&self, cx: &mut Cx, transition: RouterTransitionSpec) -> bool {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.forward_with_transition(cx, transition)
         } else {
             false
         }

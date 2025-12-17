@@ -10,9 +10,9 @@
 - [x] Add route “not found” handling at each router level (configurable fallback route id).
 
 ### Phase 3: Transitions / Animations / View Transitions (which opens the door for hero like element in flutter)
-- [ ] Implement animated transitions inside `RouterWidget` (keep old+new alive during transition, then drop old).
-- [ ] Built-in presets: `None`, `Fade`, `SlideLeft/Right`, `Scale`, `SharedAxis` with push/pop direction.
-- [ ] Per-route and per-navigation overrides (e.g. push slides, replace fades).
+- [x] Implement animated transitions inside `RouterWidget` (keep old+new alive during transition, then drop old).
+- [x] Built-in presets: `None`, `Fade`, `SlideLeft/Right`, `Scale`, `SharedAxis` with push/pop direction.
+- [x] Per-route and per-navigation overrides (e.g. push slides, replace fades).
 
 ### Phase 4: URL + Deep Linking (Web + Desktop optional)
 - [ ] Parse + generate paths (including query + hash), synchronize with web history, and allow initial route from URL.
@@ -27,5 +27,5 @@
 - [ ] Persistence of history stack + current route (extend to params/query).
 
 ### Phase 7: Tooling + Testing
-- [ ] Add unit tests for pattern parsing/matching, precedence/collisions, nested delegation.
+- [ ] Add unit tests for transition state machine and per-route override parsing.
 - [ ] Add a small “router inspector” debug overlay for current route/stack/params.

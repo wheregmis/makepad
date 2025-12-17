@@ -209,6 +209,10 @@ live_design! {
             width: Fill, height: Fill
             default_route: admin_users
             not_found_route: admin_users
+            push_transition: SharedAxis
+            pop_transition: SharedAxis
+            replace_transition: Fade
+            transition_duration: 0.25
             admin_users = <AdminUsersPage> {
                 route_pattern: "/dashboard"
             }
@@ -335,6 +339,10 @@ live_design! {
                     width: Fill, height: Fill
                     default_route: home
                     not_found_route: not_found
+                    push_transition: SlideLeft
+                    pop_transition: SlideRight
+                    replace_transition: Fade
+                    transition_duration: 0.30
                     home = <HomePage> {}
                     settings = <SettingsPage> {}
                     about = <AboutPage> {}
@@ -344,7 +352,10 @@ live_design! {
                     admin = <AdminDashboard> {
                         route_pattern: "/admin/*"
                     }
-                    not_found = <NotFoundPage> {}
+                    not_found = <NotFoundPage> {
+                        route_transition: Fade
+                        route_transition_duration: 0.20
+                    }
                 }
             }
         }
