@@ -38,9 +38,8 @@ Currently covered:
 
 1. **Split `widget.rs` further**
    - `widget/inspector.rs` is already extracted.
+   - `widget/transitions.rs` and `widget/url_sync.rs` are already extracted.
    - Next candidates:
-     - `widget/transitions.rs` (state machine + presets + per-route overrides)
-     - `widget/url_sync.rs` (web history syncing + initial URL handling)
      - `widget/nested.rs` (nested routing delegation + not-found logic)
      - `widget/guards.rs` (guard/before-leave execution and pending state)
      - `widget/hero.rs` (hero pairing + shared element transition driving)
@@ -53,4 +52,3 @@ Currently covered:
    - Nested prefix matching edge cases (dynamic + wildcards).
    - URL sync: path/query/hash roundtrip through `RouterUrl`.
    - History semantics: push/replace/back/forward/stack APIs.
-
