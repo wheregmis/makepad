@@ -52,7 +52,6 @@ impl LiveHook for RouterWidget {
                 }
 
                 self.detect_child_routers(cx);
-                self.apply_initial_url_if_needed(cx);
             }
             _ => (),
         }

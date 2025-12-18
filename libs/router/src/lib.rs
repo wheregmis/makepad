@@ -12,10 +12,37 @@ pub mod state;
 pub mod url;
 pub mod widget;
 
-pub use guards::*;
-pub use navigation::*;
-pub use route::*;
-pub use router::*;
-pub use state::*;
-pub use url::*;
-pub use widget::*;
+// Public API (explicit re-exports only; no wildcard exports).
+pub use crate::guards::{
+    RouterAsyncDecision, RouterAsyncGuard, RouterBeforeLeaveAsync, RouterBeforeLeaveDecision,
+    RouterBeforeLeaveSync, RouterGuardDecision, RouterNavContext, RouterNavKind, RouterRedirect,
+    RouterRedirectTarget, RouterSyncGuard,
+};
+pub use crate::hero::Hero;
+pub use crate::navigation::NavigationHistory;
+pub use crate::route::{Route, RouteParams, RoutePattern, RouteQuery};
+pub use crate::router::{RouteRegistry, Router, RouterAction};
+pub use crate::state::RouterState;
+pub use crate::url::{build_query_string, parse_query_map, RouterUrl};
+pub use crate::widget::{
+    RouterTransitionPreset, RouterTransitionSpec, RouterWidget, RouterWidgetRef,
+    RouterWidgetWidgetRefExt,
+};
+pub use crate::widget::live_design;
+
+/// Convenience re-exports for common usage patterns.
+pub mod prelude {
+    pub use crate::guards::{
+        RouterAsyncDecision, RouterBeforeLeaveDecision, RouterGuardDecision, RouterNavContext,
+        RouterRedirect, RouterRedirectTarget,
+    };
+    pub use crate::hero::Hero;
+    pub use crate::route::{Route, RouteParams, RoutePattern, RouteQuery};
+    pub use crate::router::{Router, RouterAction};
+    pub use crate::state::RouterState;
+    pub use crate::url::RouterUrl;
+    pub use crate::widget::{
+        RouterTransitionPreset, RouterTransitionSpec, RouterWidget, RouterWidgetRef,
+        RouterWidgetWidgetRefExt,
+    };
+}

@@ -45,7 +45,7 @@ The router package consists of several key components:
 use makepad_widgets::*;
 
 live_design! {
-    import makepad_router::*;
+    use makepad_router::widget::*;
     
     App = {{App}} {
         ui: <Window> {
@@ -77,7 +77,7 @@ impl MatchEvent for App {
 ### Route with Parameters
 
 ```rust
-use makepad_router::*;
+use makepad_router::prelude::*;
 
 // Create a route with parameters
 let profile_route = route!(profile, user_id = john_doe);
@@ -96,7 +96,7 @@ if let Some(route) = router.current_route() {
 ### Query + State
 
 ```rust
-use makepad_router::*;
+use makepad_router::prelude::*;
 
 // Navigate with query string (works via navigate_by_path or navigate_by_url)
 router.navigate_by_path(cx, "/user/123?tab=posts");

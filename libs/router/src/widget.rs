@@ -351,6 +351,12 @@ impl Widget for RouterWidget {
             }
         }
 
+        if matches!(event, Event::Startup) {
+            // Defer initial URL application to Startup so apps can install guards before we
+            // resolve and commit the initial browser URL.
+            self.apply_initial_url_if_needed(cx);
+        }
+
         if let Some(ne) = self.transition_rt.next_frame.is_event(event) {
             self.update_transition(cx, ne.time);
         }
