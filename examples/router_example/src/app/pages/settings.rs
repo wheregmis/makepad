@@ -1,4 +1,7 @@
+use makepad_router::RouterWidgetRef;
 use makepad_widgets::*;
+
+use crate::app::shared::SharedState;
 
 live_design! {
     use link::widgets::*;
@@ -48,3 +51,67 @@ live_design! {
         home_btn = <Button> { text: "Back to Home" }
     }
 }
+
+#[derive(Default)]
+pub struct SettingsController;
+
+impl SettingsController {
+    pub fn handle_actions(
+        &mut self,
+        cx: &mut Cx,
+        actions: &Actions,
+        router: &RouterWidgetRef,
+        shared: &SharedState,
+    ) {
+        let Some((to_home, toggle_login, toggle_dirty, to_admin, to_stack)) =
+            router.with_active_route_widget(|w| {
+                (
+                    w.button(&[live_id!(home_btn)]).clicked(actions),
+                    w.button(&[live_id!(login_toggle_btn)]).clicked(actions),
+                    w.button(&[live_id!(dirty_toggle_btn)]).clicked(actions),
+                    w.button(&[live_id!(go_admin_btn)]).clicked(actions),
+                    w.button(&[live_id!(go_stack_demo_btn)]).clicked(actions),
+                )
+            })
+        else {
+            return;
+        };
+
+        if toggle_login {
+            shared.set_logged_in(!shared.is_logged_in());
+        }
+        if toggle_dirty {
+            shared.set_dirty(!shared.is_dirty());
+        }
+
+        router.with_active_route_widget(|w| {
+            w.label(&[live_id!(auth_status_label)]).set_text(
+                cx,
+                if shared.is_logged_in() {
+                    "Auth: logged in"
+                } else {
+                    "Auth: logged out (admin is guarded)"
+                },
+            );
+            w.label(&[live_id!(dirty_status_label)]).set_text(
+                cx,
+                if shared.is_dirty() {
+                    "Dirty: true (before-leave blocks leaving Settings)"
+                } else {
+                    "Dirty: false"
+                },
+            );
+        });
+
+        if to_admin {
+            router.navigate_by_path(cx, "/admin/dashboard");
+        }
+        if to_stack {
+            router.navigate(cx, live_id!(stack_demo));
+        }
+        if to_home {
+            router.navigate(cx, live_id!(home));
+        }
+    }
+}
+

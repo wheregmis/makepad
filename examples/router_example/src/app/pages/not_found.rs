@@ -1,3 +1,4 @@
+use makepad_router::RouterWidgetRef;
 use makepad_widgets::*;
 
 live_design! {
@@ -24,3 +25,20 @@ live_design! {
         home_btn = <Button> { text: "Back to Home" }
     }
 }
+
+#[derive(Default)]
+pub struct NotFoundController;
+
+impl NotFoundController {
+    pub fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions, router: &RouterWidgetRef) {
+        let Some(to_home) =
+            router.with_active_route_widget(|w| w.button(&[live_id!(home_btn)]).clicked(actions))
+        else {
+            return;
+        };
+        if to_home {
+            router.replace(cx, live_id!(home));
+        }
+    }
+}
+

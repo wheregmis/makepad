@@ -1,4 +1,5 @@
 use makepad_widgets::*;
+use makepad_router::RouterWidgetRef;
 
 live_design! {
     use link::widgets::*;
@@ -46,6 +47,47 @@ live_design! {
             admin_btn = <Button> { text: "Admin (nested)" }
             stack_btn = <Button> { text: "History/Stack demo" }
             about_btn = <Button> { text: "About (async guard)" }
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct HomeController;
+
+impl HomeController {
+    pub fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions, router: &RouterWidgetRef) {
+        let Some((to_settings, to_hero, to_user, to_admin, to_stack, to_about)) =
+            router.with_active_route_widget(|w| {
+                (
+                    w.button(&[live_id!(settings_btn)]).clicked(actions),
+                    w.button(&[live_id!(hero_btn)]).clicked(actions),
+                    w.button(&[live_id!(user_btn)]).clicked(actions),
+                    w.button(&[live_id!(admin_btn)]).clicked(actions),
+                    w.button(&[live_id!(stack_btn)]).clicked(actions),
+                    w.button(&[live_id!(about_btn)]).clicked(actions),
+                )
+            })
+        else {
+            return;
+        };
+
+        if to_settings {
+            router.navigate(cx, live_id!(settings));
+        }
+        if to_hero {
+            router.navigate(cx, live_id!(hero_list));
+        }
+        if to_user {
+            router.navigate_by_path(cx, "/user/12345?tab=posts");
+        }
+        if to_admin {
+            router.navigate_by_path(cx, "/admin/dashboard");
+        }
+        if to_stack {
+            router.navigate(cx, live_id!(stack_demo));
+        }
+        if to_about {
+            router.navigate(cx, live_id!(about));
         }
     }
 }

@@ -412,7 +412,7 @@ pub struct DrawInspectorRect {
 }
 
 impl RouterWidgetRef {
-    fn with_active_route_widget<R>(&self, f: impl FnOnce(&WidgetRef) -> R) -> Option<R> {
+    pub fn with_active_route_widget<R>(&self, f: impl FnOnce(&WidgetRef) -> R) -> Option<R> {
         let inner = self.borrow()?;
         let active_route = inner.active_route;
         let route_widget = inner.route_widgets.get(&active_route)?;

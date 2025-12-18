@@ -1,4 +1,5 @@
 mod pages;
+mod shared;
 live_design! {
     use link::widgets::*;
     use link::theme_desktop_dark::*;
@@ -86,14 +87,15 @@ live_design! {
 }
 
 use makepad_router::{
-    Route, RouterAction, RouterAsyncDecision, RouterBeforeLeaveDecision, RouterGuardDecision,
-    RouterRedirect, RouterRedirectTarget, RouterWidgetWidgetRefExt,
+    RouterAction, RouterAsyncDecision, RouterBeforeLeaveDecision, RouterGuardDecision, RouterRedirect,
+    RouterRedirectTarget, RouterWidgetWidgetRefExt,
 };
 use makepad_widgets::*;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use pages::{
+    AboutController, AdminController, HeroDetailController, HeroListController, HomeController,
+    NotFoundController, SettingsController, StackDemoController, UserProfileController,
 };
+use shared::SharedState;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -103,13 +105,25 @@ pub struct App {
     #[live]
     ui: WidgetRef,
     #[rust]
-    last_user_id: Option<String>,
+    shared: SharedState,
     #[rust]
-    last_user_tab: Option<String>,
+    home: HomeController,
     #[rust]
-    auth_logged_in: Arc<AtomicBool>,
+    settings: SettingsController,
     #[rust]
-    settings_dirty: Arc<AtomicBool>,
+    about: AboutController,
+    #[rust]
+    stack_demo: StackDemoController,
+    #[rust]
+    hero_list: HeroListController,
+    #[rust]
+    hero_detail: HeroDetailController,
+    #[rust]
+    user_profile: UserProfileController,
+    #[rust]
+    admin: AdminController,
+    #[rust]
+    not_found: NotFoundController,
     #[rust]
     hooks_installed: bool,
 }
@@ -158,174 +172,30 @@ impl MatchEvent for App {
             router.back(cx);
         }
 
-        // Routed buttons: only check the active route for best performance.
+        // Routed buttons: delegate to the active page controller (route-scoped widget access).
         match router.current_route_id() {
-            Some(route_id) if route_id == live_id!(home) => {
-                if self.ui.button(ids!(router.home.settings_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(settings));
-                }
-                if self.ui.button(ids!(router.home.hero_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(hero_list));
-                }
-                if self.ui.button(ids!(router.home.user_btn)).clicked(actions) {
-                    router.navigate_by_path(cx, "/user/12345?tab=posts");
-                }
-                if self.ui.button(ids!(router.home.admin_btn)).clicked(actions) {
-                    router.navigate_by_path(cx, "/admin/dashboard");
-                }
-                if self.ui.button(ids!(router.home.stack_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(stack_demo));
-                }
-                if self.ui.button(ids!(router.home.about_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(about));
-                }
-            }
+            Some(route_id) if route_id == live_id!(home) => self.home.handle_actions(cx, actions, &router),
             Some(route_id) if route_id == live_id!(settings) => {
-                if self.ui.button(ids!(router.settings.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
-                if self.ui.button(ids!(router.settings.login_toggle_btn)).clicked(actions) {
-                    let next = !self.auth_logged_in.load(Ordering::SeqCst);
-                    self.auth_logged_in.store(next, Ordering::SeqCst);
-                }
-                if self.ui.button(ids!(router.settings.dirty_toggle_btn)).clicked(actions) {
-                    let next = !self.settings_dirty.load(Ordering::SeqCst);
-                    self.settings_dirty.store(next, Ordering::SeqCst);
-                }
-                if self.ui.button(ids!(router.settings.go_admin_btn)).clicked(actions) {
-                    router.navigate_by_path(cx, "/admin/dashboard");
-                }
-                if self.ui.button(ids!(router.settings.go_stack_demo_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(stack_demo));
-                }
+                self.settings.handle_actions(cx, actions, &router, &self.shared)
             }
-            Some(route_id) if route_id == live_id!(about) => {
-                if self.ui.button(ids!(router.about.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
-            }
+            Some(route_id) if route_id == live_id!(about) => self.about.handle_actions(cx, actions, &router),
             Some(route_id) if route_id == live_id!(stack_demo) => {
-                if self.ui.button(ids!(router.stack_demo.set_stack_btn)).clicked(actions) {
-                    router.set_stack(
-                        cx,
-                        vec![Route::new(live_id!(home)), Route::new(live_id!(settings)), Route::new(live_id!(about))],
-                    );
-                }
-                if self.ui.button(ids!(router.stack_demo.pop_to_settings_btn)).clicked(actions) {
-                    router.pop_to(cx, live_id!(settings));
-                }
-                if self.ui.button(ids!(router.stack_demo.pop_to_root_btn)).clicked(actions) {
-                    router.pop_to_root(cx);
-                }
-                if self.ui.button(ids!(router.stack_demo.replace_about_btn)).clicked(actions) {
-                    router.replace(cx, live_id!(about));
-                }
-                if self.ui.button(ids!(router.stack_demo.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
+                self.stack_demo.handle_actions(cx, actions, &router)
             }
             Some(route_id) if route_id == live_id!(hero_list) => {
-                if self.ui.button(ids!(router.hero_list.detail_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(hero_detail));
-                }
-                if self.ui.button(ids!(router.hero_list.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
+                self.hero_list.handle_actions(cx, actions, &router)
             }
             Some(route_id) if route_id == live_id!(hero_detail) => {
-                if self.ui.button(ids!(router.hero_detail.back_btn)).clicked(actions) {
-                    router.back(cx);
-                }
+                self.hero_detail.handle_actions(cx, actions, &router)
             }
             Some(route_id) if route_id == live_id!(user_profile) => {
-                if let Some(user_id) = router.get_param_string("id") {
-                    if self.last_user_id.as_ref() != Some(&user_id) {
-                        router.bind_param_to_label(cx, "id", live_id!(user_id_label), |id| {
-                            format!("User ID: {}", id)
-                        });
-                        self.last_user_id = Some(user_id);
-                    }
-                }
-
-                let tab = router
-                    .get_query_string("tab")
-                    .unwrap_or_else(|| "(none)".to_string());
-                if self.last_user_tab.as_ref() != Some(&tab) {
-                    self.ui
-                        .label(ids!(router.user_profile.tab_label))
-                        .set_text(cx, &format!("Query tab: {}", tab));
-                    self.last_user_tab = Some(tab);
-                }
-
-                if self.ui.button(ids!(router.user_profile.tab_posts_btn)).clicked(actions) {
-                    router.navigate_by_path(cx, "/user/12345?tab=posts");
-                }
-                if self.ui.button(ids!(router.user_profile.tab_likes_btn)).clicked(actions) {
-                    router.navigate_by_path(cx, "/user/12345?tab=likes");
-                }
-                if self.ui.button(ids!(router.user_profile.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
+                self.user_profile.handle_actions(cx, actions, &router)
             }
-            Some(route_id) if route_id == live_id!(admin) => {
-                // Handle nested router buttons
-                let admin_router = self.ui.router_widget(ids!(router.admin.admin_router));
-                match admin_router.current_route_id() {
-                    Some(admin_route) if admin_route == live_id!(admin_users) => {
-                        if self
-                            .ui
-                            .button(ids!(router.admin.admin_router.admin_users.admin_settings_btn))
-                            .clicked(actions)
-                        {
-                            admin_router.navigate_by_path(cx, "/settings");
-                        }
-                        if self
-                            .ui
-                            .button(ids!(router.admin.admin_router.admin_users.admin_user_42_btn))
-                            .clicked(actions)
-                        {
-                            admin_router.navigate_by_path(cx, "/users/42");
-                        }
-                    }
-                    Some(admin_route) if admin_route == live_id!(admin_settings) => {
-                        if self
-                            .ui
-                            .button(ids!(router.admin.admin_router.admin_settings.admin_users_btn))
-                            .clicked(actions)
-                        {
-                            admin_router.navigate_by_path(cx, "/dashboard");
-                        }
-                    }
-                    Some(admin_route) if admin_route == live_id!(admin_user_detail) => {
-                        if let Some(user_id) = admin_router.get_param_string("id") {
-                            self.ui
-                                .label(ids!(router.admin.admin_router.admin_user_detail.admin_user_id_label))
-                                .set_text(cx, &format!("User ID: {}", user_id));
-                        }
-                        if self
-                            .ui
-                            .button(ids!(router.admin.admin_router.admin_user_detail.back_btn))
-                            .clicked(actions)
-                        {
-                            admin_router.back(cx);
-                        }
-                    }
-                    _ => {}
-                }
-
-                if self.ui.button(ids!(router.admin.home_btn)).clicked(actions) {
-                    router.navigate(cx, live_id!(home));
-                }
-            }
+            Some(route_id) if route_id == live_id!(admin) => self.admin.handle_actions(cx, actions, &router),
             Some(route_id) if route_id == live_id!(not_found) => {
-                if self.ui.button(ids!(router.not_found.home_btn)).clicked(actions) {
-                    router.replace(cx, live_id!(home));
-                }
+                self.not_found.handle_actions(cx, actions, &router)
             }
-            _ => {
-                self.last_user_id = None;
-                self.last_user_tab = None;
-            }
+            _ => {}
         }
 
         // Update back button state + status label.
@@ -342,28 +212,7 @@ impl MatchEvent for App {
         );
         self.ui.label(ids!(nav_bar.status_label)).set_text(cx, &status);
 
-        if router.current_route_id() == Some(live_id!(settings)) {
-            self.ui
-                .label(ids!(router.settings.auth_status_label))
-                .set_text(
-                    cx,
-                    if self.auth_logged_in.load(Ordering::SeqCst) {
-                        "Auth: logged in"
-                    } else {
-                        "Auth: logged out (admin is guarded)"
-                    },
-                );
-            self.ui
-                .label(ids!(router.settings.dirty_status_label))
-                .set_text(
-                    cx,
-                    if self.settings_dirty.load(Ordering::SeqCst) {
-                        "Dirty: true (before-leave blocks leaving Settings)"
-                    } else {
-                        "Dirty: false"
-                    },
-                );
-        }
+        // Settings labels are updated by the Settings controller.
     }
 }
 
@@ -381,13 +230,13 @@ impl AppMain for App {
 impl App {
     fn install_router_hooks(&mut self, _cx: &mut Cx) {
         let router = self.ui.router_widget(ids!(router));
-        let auth = self.auth_logged_in.clone();
-        let dirty = self.settings_dirty.clone();
+        let auth = self.shared.auth_logged_in.clone();
+        let dirty = self.shared.settings_dirty.clone();
 
         // Guard: admin requires auth; redirect to settings.
         router.add_route_guard(move |_cx, nav| {
             let to = nav.to.as_ref().map(|r| r.id);
-            if to == Some(live_id!(admin)) && !auth.load(Ordering::SeqCst) {
+            if to == Some(live_id!(admin)) && !auth.load(std::sync::atomic::Ordering::SeqCst) {
                 return RouterGuardDecision::Redirect(RouterRedirect {
                     target: RouterRedirectTarget::Route(live_id!(settings)),
                     replace: true,
@@ -402,7 +251,7 @@ impl App {
             let to = nav.to.as_ref().map(|r| r.id);
             if from == Some(live_id!(settings))
                 && to != Some(live_id!(settings))
-                && dirty.load(Ordering::SeqCst)
+                && dirty.load(std::sync::atomic::Ordering::SeqCst)
             {
                 return RouterBeforeLeaveDecision::Block;
             }
