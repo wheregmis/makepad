@@ -8,7 +8,6 @@ pub fn test(){
     let mut vmbase = ScriptVmBase::new();
     let vm = &mut vmbase.as_ref();
     
-    
     #[derive(Script)]
     pub struct StructTest{
         #[live(1.0)] field:f64,
@@ -21,12 +20,27 @@ pub fn test(){
     pub enum EnumTest{
         #[pick]
         Bare,
-        #[live(1.0)] 
+        #[live(1.0)]
         Tuple(f64),
-        #[live{named_field:1.0}] 
+        #[live{named_field:1.0}]
         Named{named_field:f64}
     }
-        
+    
+    #[derive(Script, ScriptHook)]
+    #[repr(C)]
+    pub struct ShaderTest{
+        #[live] parent_field: f32, 
+        #[live] unused_field1: f32
+    }
+    
+    #[derive(Script, ScriptHook)]
+    #[repr(C)]
+    pub struct ShaderTest2{
+        #[deref] parent: ShaderTest,
+        #[live] child_field: f32, 
+        #[live] unused_field2: f32
+    }
+    
     use crate::vm::*;
     use crate::value::*;
         
@@ -48,6 +62,7 @@ pub fn test(){
         }
     }
     
+    
     let code = script!{
         use mod.std.*
         use mod.shader
@@ -62,42 +77,46 @@ pub fn test(){
             new: || self(
                 arr: array(1f,2f,3f,4f)
                 p: vec4(0)
-                field:1.0
+                field: 1.0
             )
         }
         
         let draw_uniforms = struct{
-            field: f32
+            field: f32,
         }
         
         let vertices = struct{
-            pos: vec2,
+            pos: vec4,
         }
         
         // alright. lets figure out the shader sself
-        let test_shader = {
-            vtx: shader.vertex_buffer(vertices);
+        let test_shader = #(ShaderTest2::script_shader(vm)){
+            vtx: shader.vertex_buffer(vertices)
+            unitest: shader.uniform(1.0)
             draw: shader.uniform_buffer(draw_uniforms)
+            y: shader.instance(1.0)
             x: shader.instance(1.0)
+            z_unused: shader.instance(1.0)
             vy: shader.varying(1.0)
             vertex_pos: shader.vertex_position(vec4f)
             pixel: shader.fragment_output(0, vec4f)
             otherfn: |x| x + 1
             vertex: fn(){
                 self.vy = 1.0
-                self.vertex_pos = vec4(0.0)
+                self.vertex_pos = self.vtx.pos
             }
             fragment: fn(){
-                let v = self.vy
-                let t = self.draw.field
+                let v = self.vy + self.unitest
+                let t = self.draw.field + self.parent_field + self.child_field
                 let x = sdf.new()
                 x.set_field(1f)
-                x.p.y = 1f;
+                x.p.y = 1f
                 x.arr[3] = 1f
                 self.otherfn(1f)
-                self.pixel = mix(#f00, #0f0, self.x)
+                self.pixel = mix(#f00, #0f0, self.x + self.y)
             }
         }
+        //~test_shader
         let x = sdf(0,vec4(0),array(1f,2f,3f,4f))
         ~shader.compile_draw(test_shader)
     };

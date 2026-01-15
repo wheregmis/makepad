@@ -1,6 +1,8 @@
 use {
     std::{
-        cell::{Cell,RefCell},
+        cell::{Cell, RefCell},
+        ffi::c_void,
+        rc::Rc,
         time::Instant,
     },
     crate::{
@@ -66,6 +68,11 @@ pub struct IosClasses {
     pub gesture_recognizer_handler: *const Class,
     pub textfield_delegate: *const Class,
     pub timer_delegate: *const Class,
+    pub edit_menu_delegate: *const Class,
+    // UITextInput protocol classes for IME support
+    pub text_position: *const Class,
+    pub text_range: *const Class,
+    pub text_input_view: *const Class,
 }
 impl IosClasses {
     pub fn new() -> Self {
@@ -75,7 +82,12 @@ impl IosClasses {
             mtk_view_delegate: define_mtk_view_delegate(),
             gesture_recognizer_handler: define_gesture_recognizer_handler(),
             textfield_delegate: define_textfield_delegate(),
-            timer_delegate: define_ios_timer_delegate()
+            timer_delegate: define_ios_timer_delegate(),
+            edit_menu_delegate: define_edit_menu_interaction_delegate(),
+            // All UITextInput classes enabled
+            text_position: define_makepad_text_position(),
+            text_range: define_makepad_text_range(),
+            text_input_view: define_text_input_view(),
         }
     }
 }
@@ -83,6 +95,14 @@ impl IosClasses {
 pub struct IosApp {
     pub time_start: Instant,
     pub virtual_keyboard_event:  Option<VirtualKeyboardEvent>,
+    /// Queued text input from UITextInput
+    /// (input, replace_last)
+    pub queued_text_input: Option<(String, bool)>,
+    /// Queued text range replace from UITextInput
+    /// (start, end, text)
+    pub queued_text_range_replace: Option<(usize, usize, String)>,
+    /// Queued key event from UITextInput
+    pub queued_key_event: Option<KeyCode>,
     pub timer_delegate_instance: ObjcId,
     timers: Vec<IosTimer>,
     touches: Vec<TouchPoint>,
@@ -90,16 +110,21 @@ pub struct IosApp {
     metal_device: ObjcId,
     first_draw: bool,
     pub mtk_view: Option<ObjcId>,
-    pub textfield: Option<ObjcId>,
+    /// UITextInput view for IME support
+    pub text_input_view: Option<ObjcId>,
+    /// IME candidate window position
+    pub ime_position: Option<DVec2>,
     event_callback: Option<Box<dyn FnMut(IosEvent) -> EventFlow >>,
     event_flow: EventFlow,
-    pasteboard: ObjcId
+    pasteboard: ObjcId,
+    edit_menu_delegate_instance: ObjcId,
+    edit_menu_interaction: Option<ObjcId>,
 }
 
 impl IosApp {
     pub fn new(metal_device: ObjcId, event_callback: Box<dyn FnMut(IosEvent) -> EventFlow>) -> IosApp {
         unsafe {
-            
+
             // Construct the bits that are shared between windows
             //let ns_app: ObjcId = msg_send![class!(UIApplication), sharedApplication];
             //let app_delegate_instance: ObjcId = msg_send![get_ios_class_global().app_delegate, new];
@@ -107,22 +132,29 @@ impl IosApp {
             //   panic!();
             //}
             //let () = msg_send![ns_app, setDelegate: app_delegate_instance];
-            
+
             let pasteboard: ObjcId = msg_send![class!(UIPasteboard), generalPasteboard];
+            let edit_menu_delegate_instance: ObjcId = msg_send![get_ios_class_global().edit_menu_delegate, new];
             IosApp {
                 virtual_keyboard_event: None,
+                queued_text_input: None,
+                queued_text_range_replace: None,
+                queued_key_event: None,
                 touches: Vec::new(),
                 last_window_geom: WindowGeom::default(),
                 metal_device,
                 first_draw: true,
                 mtk_view: None,
-                textfield: None,
+                text_input_view: None,
+                ime_position: None,
                 time_start: Instant::now(),
                 timer_delegate_instance: msg_send![get_ios_class_global().timer_delegate, new],
                 timers: Vec::new(),
                 event_flow: EventFlow::Poll,
                 event_callback: Some(event_callback),
                 pasteboard,
+                edit_menu_delegate_instance,
+                edit_menu_interaction: None,
             }
         }
     }
@@ -169,19 +201,31 @@ impl IosApp {
             let () = msg_send![mtk_view_obj, setAutoResizeDrawable: YES];
             let () = msg_send![mtk_view_obj, setMultipleTouchEnabled: YES];
             
+            // Create UITextInput view for proper IME support
+            let text_input_view: ObjcId = msg_send![get_ios_class_global().text_input_view, alloc];
+            let text_input_view: ObjcId = msg_send![text_input_view, initWithFrame: NSRect {
+                origin: NSPoint { x: 0.0, y: 0.0 },
+                size: NSSize { width: 1.0, height: 1.0 }
+            }];
+
+            // Initialize ivars
+            let marked_text: ObjcId = msg_send![class!(NSMutableAttributedString), alloc];
+            let marked_text: ObjcId = msg_send![marked_text, init];
+            (*text_input_view).set_ivar::<ObjcId>("markedText", marked_text);
+            (*text_input_view).set_ivar::<i64>("cursorPosition", 0);
+            (*text_input_view).set_ivar::<i64>("selectionStart", 0);
+            (*text_input_view).set_ivar::<i64>("selectionEnd", 0);
+            (*text_input_view).set_ivar::<ObjcId>("_inputDelegate", nil);
+            (*text_input_view).set_ivar::<ObjcId>("_tokenizer", nil);
+            (*text_input_view).set_ivar::<f64>("ime_pos_x", 0.0);
+            (*text_input_view).set_ivar::<f64>("ime_pos_y", 0.0);
+
+            let () = msg_send![text_input_view, setUserInteractionEnabled: YES];
+            let () = msg_send![mtk_view_obj, addSubview: text_input_view];
+
+            // Set up textfield delegate for keyboard notifications only
             let textfield_dlg: ObjcId = msg_send![get_ios_class_global().textfield_delegate, alloc];
             let textfield_dlg: ObjcId = msg_send![textfield_dlg, init];
-             
-            let textfield: ObjcId = msg_send![class!(UITextField), alloc];
-            let textfield: ObjcId =  msg_send![textfield, initWithFrame: NSRect {origin: NSPoint {x: 10.0, y: 10.0}, size: NSSize {width: 100.0, height: 50.0}}];
-            let () = msg_send![textfield, setAutocapitalizationType: 0]; // UITextAutocapitalizationTypeNone
-            let () = msg_send![textfield, setAutocorrectionType: 1]; // UITextAutocorrectionTypeNo
-            let () = msg_send![textfield, setSpellCheckingType: 1]; // UITextSpellCheckingTypeNo
-            let () = msg_send![textfield, setHidden: YES];
-            let () = msg_send![textfield, setDelegate: textfield_dlg];
-            // to make backspace work - with empty text there is no event on text removal
-            let () = msg_send![textfield, setText: str_to_nsstring("x")];
-            let () = msg_send![mtk_view_obj, addSubview: textfield];
             
             let notification_center: ObjcId = msg_send![class!(NSNotificationCenter), defaultCenter];
             let () = msg_send![notification_center, addObserver: textfield_dlg selector: sel!(keyboardDidChangeFrame:) name: UIKeyboardDidChangeFrameNotification object: nil];
@@ -199,9 +243,21 @@ impl IosApp {
             //let () = msg_send![view_ctrl_obj, endAppearanceTransition];
             
             let () = msg_send![window_obj, makeKeyAndVisible];
-            
-            self.textfield = Some(textfield);
+
+            // Initialize UIEditMenuInteraction for clipboard actions
+            // Store MTKView reference in the delegate for accessing menu rect
+            (*self.edit_menu_delegate_instance).set_ivar("mtk_view", mtk_view_obj as *mut c_void);
+
+            // Create UIEditMenuInteraction with our delegate
+            let edit_menu_interaction: ObjcId = msg_send![class!(UIEditMenuInteraction), alloc];
+            let edit_menu_interaction: ObjcId = msg_send![edit_menu_interaction, initWithDelegate: self.edit_menu_delegate_instance];
+
+            // Add the interaction to the MTKView
+            let () = msg_send![mtk_view_obj, addInteraction: edit_menu_interaction];
+
+            self.text_input_view = Some(text_input_view);
             self.mtk_view = Some(mtk_view_obj);
+            self.edit_menu_interaction = Some(edit_menu_interaction);
         }
     }
     
@@ -338,15 +394,93 @@ impl IosApp {
     }
     
     pub fn show_keyboard() {
-        let textfield = with_ios_app(|app| app.textfield.unwrap());
-        let () = unsafe {msg_send![textfield, becomeFirstResponder]};
+        // Use text_input_view for keyboard (UITextInput protocol)
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(app_ref) = app.try_borrow_mut() {
+                if let Some(ref app) = *app_ref {
+                    if let Some(text_input_view) = app.text_input_view {
+                        let () = unsafe { msg_send![text_input_view, becomeFirstResponder] };
+                    }
+                }
+            }
+        });
     }
 
-    pub fn hide_keyboard(){
-        let textfield = with_ios_app(|app| app.textfield.unwrap());
-        let () = unsafe {msg_send![textfield, resignFirstResponder]};
+    pub fn hide_keyboard() {
+        // Use text_input_view for keyboard
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(app_ref) = app.try_borrow_mut() {
+                if let Some(ref app) = *app_ref {
+                    if let Some(text_input_view) = app.text_input_view {
+                        let () = unsafe { msg_send![text_input_view, resignFirstResponder] };
+                    }
+                }
+            }
+        });
     }
-    
+
+    pub fn set_ime_position(pos: DVec2) {
+        // Avoid re-entrant calls by checking if we're already in a with_ios_app call
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    app.ime_position = Some(pos);
+                    // Also set ivars directly on the text_input_view to avoid re-entrant borrow issues
+                    // when UITextInput callbacks access the position
+                    if let Some(text_input_view) = app.text_input_view {
+                        unsafe {
+                            (*text_input_view).set_ivar::<f64>("ime_pos_x", pos.x);
+                            (*text_input_view).set_ivar::<f64>("ime_pos_y", pos.y);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn set_ime_text(text: String, cursor_byte_pos: usize) {
+        // Convert byte position to UTF-16 code unit position for iOS
+        // cursor_byte_pos is a UTF-8 byte index, iOS NSString uses UTF-16 internally
+        let cursor_char_pos = text[..cursor_byte_pos.min(text.len())]
+            .encode_utf16()
+            .count();
+
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    if let Some(text_input_view) = app.text_input_view {
+                        unsafe {
+                            // Get or create text buffer
+                            let buffer: ObjcId = *(*text_input_view).get_ivar("textBuffer");
+                            let buffer = if buffer != nil {
+                                buffer
+                            } else {
+                                let new_buffer: ObjcId = msg_send![class!(NSMutableString), alloc];
+                                let new_buffer: ObjcId = msg_send![new_buffer, init];
+                                (*text_input_view).set_ivar("textBuffer", new_buffer);
+                                new_buffer
+                            };
+
+                            // Clear existing content
+                            let len: u64 = msg_send![buffer, length];
+                            if len > 0 {
+                                let range = NSRange { location: 0, length: len };
+                                let () = msg_send![buffer, deleteCharactersInRange: range];
+                            }
+
+                            // Set new content
+                            let ns_text = str_to_nsstring(&text);
+                            let () = msg_send![buffer, appendString: ns_text];
+
+                            // Set cursor position (in characters, not bytes)
+                            (*text_input_view).set_ivar("cursorPosition", cursor_char_pos as i64);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     pub fn do_callback(event: IosEvent) {
         let cb = with_ios_app(|app| app.event_callback.take());
         if let Some(mut callback) = cb {
@@ -389,11 +523,7 @@ impl IosApp {
             let () = msg_send![pool, release];
         }
     }
-    
-    pub fn send_virtual_keyboard_event(event:VirtualKeyboardEvent){
-        IosApp::do_callback(IosEvent::VirtualKeyboard(event));
-    }
-    
+
     pub fn queue_virtual_keyboard_event(&mut self, event:VirtualKeyboardEvent){
         self.virtual_keyboard_event = Some(event);
     }
@@ -411,27 +541,50 @@ impl IosApp {
     }
     
     pub fn send_text_input(input: String, replace_last: bool) {
-        IosApp::do_callback(IosEvent::TextInput(TextInputEvent {
-            input: input,
-            was_paste: false,
-            replace_last: replace_last
-        }))
+        // Always queue - will be processed on next timer tick
+        // This avoids re-entrancy issues from UITextField delegate callbacks
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    app.queued_text_input = Some((input, replace_last));
+                }
+            }
+        });
     }
-    
+
+    pub fn send_text_range_replace(start: usize, end: usize, text: String) {
+        // Queue range replacement for iOS autocorrect
+        // This avoids re-entrancy issues from UITextInput delegate callbacks
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    app.queued_text_range_replace = Some((start, end, text));
+                }
+            }
+        });
+    }
+
     pub fn send_backspace() {
-        let time = with_ios_app(|app| app.time_now());
-        IosApp::do_callback(IosEvent::KeyDown(KeyEvent {
-            key_code: KeyCode::Backspace,
-            is_repeat: false,
-            modifiers: Default::default(),
-            time,
-        }));
-        IosApp::do_callback(IosEvent::KeyUp(KeyEvent {
-            key_code: KeyCode::Backspace,
-            is_repeat: false,
-            modifiers: Default::default(),
-            time,
-        }));
+        // Always queue - will be processed on next timer tick
+        // This avoids re-entrancy issues from UITextField delegate callbacks
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    app.queued_key_event = Some(KeyCode::Backspace);
+                }
+            }
+        });
+    }
+
+    pub fn send_return_key() {
+        // Queue Return key event
+        let _ = IOS_APP.try_with(|app| {
+            if let Ok(mut app_ref) = app.try_borrow_mut() {
+                if let Some(ref mut app) = *app_ref {
+                    app.queued_key_event = Some(KeyCode::ReturnKey);
+                }
+            }
+        });
     }
     
     pub fn send_timer_received(nstimer: ObjcId) {
@@ -473,25 +626,124 @@ impl IosApp {
         }
     }
 
-    pub fn show_clipboard_actions(&self, _has_selection: bool) {
-        // Note: Full UIMenuController implementation requires:
-        // 1. A custom UIView that can become first responder
-        // 2. Implementation of canPerformAction:withSender:
-        // 3. Action methods (copy:, paste:, cut:, selectAll:)
-        // 4. Proper positioning of the menu
-        //
-        // This is a placeholder that logs the intent.
-        // The hidden textfield approach currently used for IME doesn't
-        // easily support UIMenuController as it's designed for keyboard input only.
-        //
-        // For full implementation, we need to either:
-        // A) Add a custom responder view to the view hierarchy, OR
-        // B) Make the MTKView conform to the required protocols
+    pub fn show_clipboard_actions(has_selection: bool, rect: Rect, _keyboard_shift: f64) {
+        // Extract what we need from IosApp first, then do ObjC calls AFTER the borrow ends
+        // This avoids re-entrant borrow panics when UIKit triggers keyboard notifications
+        let views = IOS_APP.try_with(|app| {
+            if let Ok(app_ref) = app.try_borrow_mut() {
+                if let Some(ref app) = *app_ref {
+                    if let (Some(mtk_view), Some(edit_menu_interaction)) = (app.mtk_view, app.edit_menu_interaction) {
+                        return Some((mtk_view, edit_menu_interaction));
+                    }
+                }
+            }
+            None
+        }).ok().flatten();
 
-        crate::log!("iOS: showClipboardActions called - UIMenuController not yet implemented");
+        let Some((mtk_view, edit_menu_interaction)) = views else { return };
 
-        // TODO: Implement UIMenuController properly
-        // Reference implementation needed similar to Android's ActionMode
+        unsafe {
+            // Store selection state in the view for canPerformAction filtering
+            let has_sel: BOOL = if has_selection { YES } else { NO };
+            (*mtk_view).set_ivar::<BOOL>("has_selection", has_sel);
+
+            // Store the menu rect in the view for the delegate's targetRectForConfiguration
+            (*mtk_view).set_ivar::<f64>("menu_rect_x", rect.pos.x);
+            (*mtk_view).set_ivar::<f64>("menu_rect_y", rect.pos.y);
+            (*mtk_view).set_ivar::<f64>("menu_rect_width", rect.size.x.max(1.0));
+            (*mtk_view).set_ivar::<f64>("menu_rect_height", rect.size.y.max(1.0));
+
+            // Create configuration with source point at center of the rect
+            let source_point = NSPoint {
+                x: rect.pos.x + rect.size.x / 2.0,
+                y: rect.pos.y + rect.size.y / 2.0,
+            };
+            let config: ObjcId = msg_send![
+                class!(UIEditMenuConfiguration),
+                configurationWithIdentifier: nil
+                sourcePoint: source_point
+            ];
+
+            // Present the edit menu - this may trigger keyboard notifications,
+            // but now we're not holding any borrow so it's safe
+            let () = msg_send![edit_menu_interaction, presentEditMenuWithConfiguration: config];
+        }
+    }
+
+    pub fn hide_clipboard_actions() {
+        // Extract what we need first, then do ObjC calls after borrow ends
+        let interaction = IOS_APP.try_with(|app| {
+            if let Ok(app_ref) = app.try_borrow_mut() {
+                if let Some(ref app) = *app_ref {
+                    return app.edit_menu_interaction;
+                }
+            }
+            None
+        }).ok().flatten();
+
+        if let Some(edit_menu_interaction) = interaction {
+            unsafe {
+                let () = msg_send![edit_menu_interaction, dismissMenu];
+            }
+        }
+    }
+
+    // Action dispatch methods called from MakepadView's action handlers
+    pub fn send_clipboard_action(action: &str) {
+        match action {
+            "copy" => {
+                let response = Rc::new(RefCell::new(None));
+                IosApp::do_callback(IosEvent::TextCopy(TextClipboardEvent {
+                    response: response.clone()
+                }));
+                // After the event handler fills in the response, copy to clipboard
+                let text_to_copy = response.borrow().clone();
+                if let Some(text) = text_to_copy {
+                    with_ios_app(|app| app.copy_to_clipboard(&text));
+                }
+            },
+            "cut" => {
+                let response = Rc::new(RefCell::new(None));
+                IosApp::do_callback(IosEvent::TextCut(TextClipboardEvent {
+                    response: response.clone()
+                }));
+                // After the event handler fills in the response, copy to clipboard
+                let text_to_copy = response.borrow().clone();
+                if let Some(text) = text_to_copy {
+                    with_ios_app(|app| app.copy_to_clipboard(&text));
+                }
+            },
+            "select_all" => {
+                // Send Cmd+A keypress to trigger select all in widgets
+                // On Apple platforms, is_primary() checks for logo (Command)
+                let time = with_ios_app(|app| app.time_now());
+                IosApp::do_callback(IosEvent::KeyDown(KeyEvent {
+                    key_code: KeyCode::KeyA,
+                    is_repeat: false,
+                    modifiers: KeyModifiers {
+                        shift: false,
+                        control: false,
+                        alt: false,
+                        logo: true,
+                    },
+                    time,
+                }));
+            },
+            _ => {
+                crate::log!("iOS: Unknown clipboard action: {}", action);
+            }
+        }
+    }
+
+    pub fn send_clipboard_paste() {
+        let content = with_ios_app(|app| app.paste_from_clipboard());
+        if !content.is_empty() {
+            IosApp::do_callback(IosEvent::TextInput(TextInputEvent {
+                input: content,
+                replace_last: false,
+                was_paste: true,
+            }));
+        }
     }
 
     pub fn get_ios_directory_paths() -> String {

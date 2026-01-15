@@ -4,11 +4,13 @@ pub mod keyboard;
 pub mod window;
 pub mod xr;
 pub mod drag_drop;
+pub mod designer;
 pub mod network;
 pub mod video_playback;
-pub mod designer;
+pub mod game_input;
 
 pub use event::*;
+pub use game_input::*;
 pub use finger::*;
 pub use designer::*;
 pub use keyboard::*;

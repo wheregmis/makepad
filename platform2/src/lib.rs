@@ -11,6 +11,7 @@ mod cx;
 mod cx_api;
 
 pub mod action;
+pub mod game_input;
 
 pub mod thread;
 pub mod audio;
@@ -118,6 +119,7 @@ pub use {
             RectArea,
             InstanceArea
         },
+        game_input::*,
         midi::*,
         audio::*,
         thread::*,
@@ -132,6 +134,7 @@ pub use {
             HttpError,
             NetworkResponse,
             NetworkResponsesEvent,
+            GameInputState,
             Margin,
             KeyCode,
             Event,

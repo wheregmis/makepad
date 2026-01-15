@@ -1310,5 +1310,36 @@ extern "C" {
     
 }
 
+// ScreenCaptureKit framework (macOS 12.3+) for audio loopback capture
+#[cfg(target_os = "macos")]
+#[link(name = "ScreenCaptureKit", kind = "framework")]
+extern "C" {
+    pub static SCShareableContent: ObjcId;
+    pub static SCContentFilter: ObjcId;
+    pub static SCStreamConfiguration: ObjcId;
+    pub static SCStream: ObjcId;
+}
+
+#[link(name = "GameController", kind = "framework")]
+extern "C" {
+    pub static GCController: ObjcId;
+    pub static GCExtendedGamepad: ObjcId;
+}
+
+
+// Game Controller Framework (GCController)
+
+#[link(name = "GameController", kind = "framework")]
+extern "C" {
+    /// Notification name for when a controller connects
+    pub static GCControllerDidConnectNotification: ObjcId;
+    /// Notification name for when a controller disconnects  
+    pub static GCControllerDidDisconnectNotification: ObjcId;
+    /// Notification name for when a controller becomes the current controller
+    pub static GCControllerDidBecomeCurrentNotification: ObjcId;
+    /// Notification name for when a controller stops being the current controller
+    pub static GCControllerDidStopBeingCurrentNotification: ObjcId;
+}
+
 
 

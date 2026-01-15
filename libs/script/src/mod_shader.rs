@@ -12,7 +12,7 @@ pub struct ShaderIoType(pub(crate) u32);
 
 pub const SHADER_IO_RUST_INSTANCE: ShaderIoType = ShaderIoType(0);
 pub const SHADER_IO_DYN_INSTANCE: ShaderIoType = ShaderIoType(1);
-pub const SHADER_IO_DYN_UNIFORM: ShaderIoType = ShaderIoType(2);
+pub const SHADER_IO_UNIFORM: ShaderIoType = ShaderIoType(2);
 pub const SHADER_IO_UNIFORM_BUFFER: ShaderIoType = ShaderIoType(3);
 pub const SHADER_IO_VERTEX_BUFFER: ShaderIoType = ShaderIoType(4);
 pub const SHADER_IO_VARYING: ShaderIoType = ShaderIoType(5);
@@ -38,7 +38,7 @@ pub fn define_shader_module(heap:&mut ScriptHeap, native:&mut ScriptNative){
     native.add_method(heap, shader, id!(uniform), script_args!(value=NIL), |vm, args|{
         let value = script_value!(vm, args.value);
         let obj = vm.heap.new_with_proto(value);
-        vm.heap.set_shader_io(obj, SHADER_IO_DYN_UNIFORM);
+        vm.heap.set_shader_io(obj, SHADER_IO_UNIFORM);
         obj.into()
     });
     
@@ -87,8 +87,11 @@ pub fn define_shader_module(heap:&mut ScriptHeap, native:&mut ScriptNative){
         // for every function we make a 'shadercompiler'
         if let Some(io_self) = io_self.as_object(){
             let mut output = ShaderOutput::default();
+            output.backend = ShaderBackend::Metal;
+                        
+            output.pre_collect_rust_instance_io(vm, io_self);
+            
             if let Some(fnobj) = vm.heap.object_method(io_self, id!(vertex).into(), &vm.thread.trap).as_object(){
-                output.backend = ShaderBackend::Metal;
                 output.mode = ShaderMode::Vertex;
                 ShaderFnCompiler::compile_shader_def(
                     vm, 
@@ -110,6 +113,13 @@ pub fn define_shader_module(heap:&mut ScriptHeap, native:&mut ScriptNative){
                     vec![],
                 );
             }
+            
+            
+            
+            // After compilation, pre-collect ALL Rust instance fields in correct order
+            // Dyn fields were already collected during compilation as encountered
+            // Rust fields must ALL be emitted to match Repr(C) layout
+            
             // alright on metal we now need to generate the structs
             // we need to generate the Varying struct
             // the vertex Varying vertex_main
@@ -119,6 +129,15 @@ pub fn define_shader_module(heap:&mut ScriptHeap, native:&mut ScriptNative){
             // alright we should have output now
             let mut out = String::new();
             output.create_struct_defs(vm, &mut out);
+            output.metal_create_instance_struct(vm, &mut out);
+            output.metal_create_uniform_struct(vm, &mut out);
+            output.metal_create_io_struct(vm, &mut out);
+            output.metal_create_varying_struct(vm, &mut out);
+            output.metal_create_vertex_buffer_struct(vm, &mut out);
+            output.metal_create_io_vertex_struct(vm, &mut out);
+            output.metal_create_vertex_fn(vm, &mut out);
+            output.metal_create_io_fragment_struct(vm, &mut out);
+            output.metal_create_fragment_main_fn(vm, &mut out);
             println!("Structs:\n{}", out);
             for fns in output.functions{
                 println!("{}{{\n{}}}\n",fns.call_sig, fns.out);

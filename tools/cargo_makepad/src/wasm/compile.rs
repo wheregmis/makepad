@@ -38,7 +38,7 @@ pub fn generate_html(wasm:&str, config: &WasmConfig)->String{
             let wasm = await init({{module_or_path: module}}, env);
             set_wasm(wasm);
 
-            wasm._has_thread_support = true;
+            wasm._has_thread_support = wasm.exports.memory.buffer instanceof SharedArrayBuffer;
             wasm._memory = wasm.exports.memory;
             wasm._module = module;
             import {{WasmWebGL}} from './makepad_platform/web_gl.js'
@@ -133,7 +133,7 @@ pub fn build(config:WasmConfig, args: &[String]) -> Result<WasmBuildResult, Stri
     }
     
     shell_env(&[
-        ("RUSTFLAGS", "-C codegen-units=1 -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--export=__stack_pointer -C opt-level=z"),
+        ("RUSTFLAGS", "-C codegen-units=1 -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--export=__stack_pointer -C link-arg=--shared-memory -C link-arg=--max-memory=2147483648 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base -C opt-level=z"),
         ("MAKEPAD", "lines"),
     ], &cwd, "rustup", &args_out) ?;
     
@@ -233,6 +233,7 @@ pub fn build(config:WasmConfig, args: &[String]) -> Result<WasmBuildResult, Stri
             .replace("imports['env'] = __wbg_star0;", "")
             .replace("return wasm;\n}", "return instance;\n}")
             .replace("__wbg_init(module_or_path, memory) {", "__wbg_init(module_or_path, env) {let memory;")
+            .replace("__wbg_init(module_or_path) {", "__wbg_init(module_or_path, env) {let memory;")
             .replace("imports = __wbg_get_imports();", "imports = __wbg_get_imports(); imports.env = env;");
         std::fs::OpenOptions::new().write(true).truncate(true).open(&jsfile).unwrap().write(patched.as_bytes()).unwrap();
         cp_brotli(&jsfile, &app_dir.join("bindgen.js"), false, config.brotli)?;
@@ -317,9 +318,10 @@ pub fn start_wasm_server(root:PathBuf, lan:bool, port: u16) {
         while let Ok(message) = rx_request.recv() {
             // only store last change, fix later
             match message {
-                HttpServerRequest::ConnectWebSocket {..} => {},
-                HttpServerRequest::DisconnectWebSocket {..} => {},
+                HttpServerRequest::ConnectWebSocket {..} => {}
+                HttpServerRequest::DisconnectWebSocket {..} => {}
                 HttpServerRequest::BinaryMessage {..} => {}
+                HttpServerRequest::TextMessage {..}=>{}
                 HttpServerRequest::Get {headers, response_sender} => {
                     let path = &headers.path;
                     
@@ -379,6 +381,7 @@ pub fn start_wasm_server(root:PathBuf, lan:bool, port: u16) {
                     }
                 }
                 HttpServerRequest::Post {..} => { //headers, body, response}=>{
+                    // TODO
                 }
             }
         }

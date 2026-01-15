@@ -24,9 +24,28 @@ pub trait ScriptHookDeref {
     fn on_deref_after_apply(&mut self,_vm:&mut ScriptVm, _apply:&mut ApplyScope, _value:ScriptValue){}
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Debug)]
+pub struct ScriptTypeProp {
+    pub order: u32,
+    pub ty: ScriptTypeId,
+}
+
+#[derive(Default, Debug)]
 pub struct ScriptTypeProps{
-    pub props: LiveIdMap<LiveId, ScriptTypeId>
+    pub props: LiveIdMap<LiveId, ScriptTypeProp>
+}
+
+impl ScriptTypeProps {
+    pub fn insert(&mut self, id: LiveId, ty: ScriptTypeId) {
+        let order = self.props.len() as u32;
+        self.props.insert(id, ScriptTypeProp { order, ty });
+    }
+    
+    pub fn iter_ordered(&self) -> impl Iterator<Item = (LiveId, ScriptTypeId)> + '_ {
+        let mut ordered: Vec<_> = self.props.iter().map(|(k, v)| (*k, *v)).collect();
+        ordered.sort_by_key(|(_, prop)| prop.order);
+        ordered.into_iter().map(|(id, prop)| (id, prop.ty))
+    }
 }
 
 pub struct ScriptTypeObject{
@@ -107,7 +126,7 @@ pub trait ScriptNew:  ScriptApply + ScriptHook where Self:'static{
         };
         let ty_index = vm.heap.register_type(Some(type_id), ty_check);
         if let Some(obj) = proto.as_object(){
-            vm.heap.freeze_with_type(obj, ty_index);
+            vm.heap.set_type(obj, ty_index);
         }
         proto
     }
@@ -132,6 +151,13 @@ pub trait ScriptNew:  ScriptApply + ScriptHook where Self:'static{
     fn script_component(vm:&mut ScriptVm)->ScriptValue{
         let val = Self::script_proto(vm);
         vm.heap.freeze_component(val.into());
+        val
+    }
+    
+    fn script_shader(vm:&mut ScriptVm)->ScriptValue{
+        let val = Self::script_proto(vm);
+        
+        vm.heap.freeze_shader(val.into());
         val
     }
     
