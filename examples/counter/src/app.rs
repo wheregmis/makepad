@@ -54,10 +54,15 @@ pub struct App {
 impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         if self.ui.button(cx, ids!(increment_button)).clicked(actions) {
-            script_eval!(cx,{
+            let value = script_eval!(cx,{
                 mod.state.counter += 1
+                return mod.state.counter
+            });
+            script_eval!(cx, {
                 ui.main_view.render()
             });
+
+            println!("The value is: {:?}", value)
         }
     }
 }
