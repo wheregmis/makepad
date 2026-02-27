@@ -463,7 +463,7 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
                 }
                 let data = fs::read(&path).map_err(|e| format!("Cannot read wasm file {:?} {:?}", path, e))?;
                 let strip = wasm_strip_debug(&data)
-                    .map_err(|_| format!("Cannot parse wasm {:?}", path))?;
+                    .map_err(|e| format!("Cannot strip debug info from wasm {:?}: {:?}", path, e))?;
                 fs::write(&path, strip)
                     .map_err(|e| format!("Can't write file {:?} {:?} ", path, e))?;
             }
