@@ -99,12 +99,16 @@ For built-in maps and voice support, download the assets first:
 
 ```bash
 cargo makepad wasm install-toolchain
+# or only install wasm CLI helpers if toolchain is already set up
+# cargo makepad wasm install-cli-tools
 ```
 
 2. Run an example:
 
 ```bash
 cargo makepad wasm run -p makepad-example-splash --release
+# optional: split output into lazy-loaded chunks (requires wasm-split + --bindgen)
+# cargo makepad wasm --bindgen --split run -p makepad-example-splash --release
 ```
 
 3. Open:

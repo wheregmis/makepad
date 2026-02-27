@@ -31,6 +31,7 @@ fn show_help() {
     println!("Wasm Commands:");
     println!();
     println!("    wasm install-toolchain                       Install the toolchain needed for wasm32 with rustup");
+    println!("    wasm install-cli-tools                       Install wasm CLI tools (wasm-bindgen-cli, wasm-split-cli)");
     println!("    wasm build <cargo args>                      Build a wasm project");
     println!("    wasm [options] run <cargo args>              Build and run a wasm project, starts a webserver at port 8010");
     println!();
@@ -45,6 +46,7 @@ fn show_help() {
         "       --brotli                                  Use brotli to compress the wasm file"
     );
     println!("       --bindgen                                 Enable wasm-bindgen compatibility");
+    println!("       --split                                   Split wasm into lazy-loaded chunks (requires --bindgen and wasm-split)");
     println!();
     println!("Apple iOS/TVOs Commands:");
     println!();

@@ -1,5 +1,27 @@
 use crate::makepad_shell::*;
 
+const WASM_BINDGEN_CLI_VERSION: &str = "0.2.104";
+
+pub fn install_cli_tools() -> Result<(), String> {
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Unable to determine current directory: {:?}", e))?;
+    println!("Installing wasm CLI tools (wasm-bindgen-cli, wasm-split-cli)");
+    shell_env(
+        &[],
+        &cwd,
+        "cargo",
+        &[
+            "install",
+            "--locked",
+            "wasm-bindgen-cli",
+            "--version",
+            WASM_BINDGEN_CLI_VERSION,
+        ],
+    )?;
+    shell_env(&[], &cwd, "cargo", &["install", "--locked", "wasm-split-cli"])?;
+    Ok(())
+}
+
 pub fn rustup_toolchain_install() -> Result<(), String> {
     println!("Installing Rust toolchains for wasm");
     /*
@@ -64,6 +86,8 @@ pub fn rustup_toolchain_install() -> Result<(), String> {
             "wasm32-unknown-unknown",
         ],
     )?;
+
+    install_cli_tools()?;
 
     Ok(())
 }

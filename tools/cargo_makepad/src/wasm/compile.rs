@@ -19,18 +19,25 @@ pub struct WasmConfig {
     pub small_fonts: bool,
     pub brotli: bool,
     pub bindgen: bool,
+    pub split: bool,
 }
 
 pub fn generate_html(wasm: &str, config: &WasmConfig) -> String {
+    let wasm_file = if config.bindgen && config.split {
+        "main"
+    } else {
+        wasm
+    };
     let init = if config.bindgen {
+        let init_module = if config.split { "main.js" } else { "bindgen.js" };
         format!(
             "
             const {{init_env}} = await import('./makepad_wasm_bridge/wasm_bridge.js');
-            const init = (await import('./bindgen.js')).default;
+            const init = (await import('./{init_module}')).default;
     
             let env = {{}};
             let set_wasm = init_env(env);
-            let module = await WebAssembly.compileStreaming(fetch('./{wasm}.wasm'))
+            let module = await WebAssembly.compileStreaming(fetch('./{wasm_file}.wasm'))
             let wasm = await init({{module_or_path: module}}, env);
             set_wasm(wasm);
 
@@ -169,8 +176,47 @@ pub fn cp_brotli(
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+enum WasmSplitCmd {
+    LegacyWasmSplit,
+    CliSplitSubcommand,
+}
+
+fn resolve_wasm_split_cmd(cwd: &PathBuf) -> Result<WasmSplitCmd, String> {
+    if shell_env_cap(&[], cwd, "wasm-split", &["--help"]).is_ok() {
+        return Ok(WasmSplitCmd::LegacyWasmSplit);
+    }
+    if shell_env_cap(&[], cwd, "wasm-split-cli", &["split", "--help"]).is_ok() {
+        return Ok(WasmSplitCmd::CliSplitSubcommand);
+    }
+    Err("Neither `wasm-split` nor `wasm-split-cli split` was found in PATH.".to_string())
+}
+
 pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, String> {
     let build_crate = get_build_crate_from_args(args)?;
+    if config.split && !config.bindgen {
+        return Err("--split requires --bindgen for wasm-split compatibility".into());
+    }
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Unable to determine current directory: {:?}", e))?;
+    if config.bindgen {
+        shell_env_cap(&[], &cwd, "wasm-bindgen", &["--version"]).map_err(|e| {
+            format!(
+                "Missing `wasm-bindgen` CLI. Install it with: cargo makepad wasm install-cli-tools\nError details: {}",
+                e
+            )
+        })?;
+    }
+    let wasm_split_cmd = if config.split {
+        Some(resolve_wasm_split_cmd(&cwd).map_err(|e| {
+            format!(
+                "Missing `wasm-split` CLI. Install it with: cargo makepad wasm install-cli-tools\nError details: {}",
+                e
+            )
+        })?)
+    } else {
+        None
+    };
 
     let base_args = &[
         "run",
@@ -389,6 +435,7 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
             }
         }
     }
+    let original_wasm_source = build_dir.join(format!("{}.wasm", build_crate));
     let wasm_source = if config.bindgen {
         shell(
             build_dir.as_path(),
@@ -433,23 +480,74 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
         build_dir.join(format!("{}.wasm", build_crate))
     };
 
-    let wasm_dest = app_dir.join(format!("{}.wasm", build_crate));
-    if config.strip {
-        if let Ok(data) = fs::read(&wasm_source) {
-            if let Ok(strip) = wasm_strip_debug(&data) {
-                fs::write(&wasm_dest, strip)
-                    .map_err(|e| format!("Can't write file {:?} {:?} ", wasm_dest, e))?;
-            } else {
-                return Err(format!("Cannot parse wasm {:?}", wasm_source));
+    if config.split {
+        let main_module = app_dir.join("main.js");
+        // Split mode keeps bindgen.js as wasm-bindgen glue and adds a tiny entry shim.
+        // wasm-split tooling expects this module entrypoint and rewrites the final module layout.
+        // Keep both exports: `default` is used by our HTML bootstrap, `initSync` by split tooling.
+        fs::write(
+            &main_module,
+            "export { default as initSync, default } from './bindgen.js';\n",
+        )
+            .map_err(|e| format!("Can't write {:?} {:?} ", main_module, e))?;
+        let wasm_split_cmd = wasm_split_cmd.unwrap_or(WasmSplitCmd::LegacyWasmSplit);
+        let wasm_source_str = wasm_source.to_string_lossy().to_string();
+        let original_wasm_source_str = original_wasm_source.to_string_lossy().to_string();
+        match wasm_split_cmd {
+            WasmSplitCmd::LegacyWasmSplit => {
+                shell(&app_dir, "wasm-split", &[&wasm_source_str, "."])?;
             }
-        } else {
-            return Err(format!("Cannot read wasm file {:?}", wasm_source));
+            WasmSplitCmd::CliSplitSubcommand => {
+                shell(
+                    &app_dir,
+                    "wasm-split-cli",
+                    &["split", &original_wasm_source_str, &wasm_source_str, "."],
+                )?;
+            }
+        }
+        if config.strip || config.brotli {
+            // Post-process all split outputs in one pass:
+            // - strip debug info from wasm chunks
+            // - optionally brotli-compress wasm/js artifacts that are web-served
+            for entry in
+                fs::read_dir(&app_dir).map_err(|e| format!("Can't read {:?} {:?}", app_dir, e))?
+            {
+                let entry =
+                    entry.map_err(|e| format!("Can't read output entry {:?} {:?}", app_dir, e))?;
+                let path = entry.path();
+                let ext = path.extension().and_then(|v| v.to_str());
+                if config.strip && matches!(ext, Some("wasm")) {
+                    let data =
+                        fs::read(&path).map_err(|e| format!("Cannot read wasm file {:?} {:?}", path, e))?;
+                    let strip = wasm_strip_debug(&data)
+                        .map_err(|e| format!("Cannot strip debug info from wasm {:?}: {:?}", path, e))?;
+                    fs::write(&path, strip)
+                        .map_err(|e| format!("Can't write file {:?} {:?} ", path, e))?;
+                }
+                if config.brotli && matches!(ext, Some("wasm" | "js")) {
+                    brotli_compress(&path);
+                }
+            }
         }
     } else {
-        cp(&wasm_source, &wasm_dest, false)?;
-    }
-    if config.brotli {
-        brotli_compress(&wasm_dest);
+        let wasm_dest = app_dir.join(format!("{}.wasm", build_crate));
+        if config.strip {
+            if let Ok(data) = fs::read(&wasm_source) {
+                if let Ok(strip) = wasm_strip_debug(&data) {
+                    fs::write(&wasm_dest, strip)
+                        .map_err(|e| format!("Can't write file {:?} {:?} ", wasm_dest, e))?;
+                } else {
+                    return Err(format!("Cannot parse wasm {:?}", wasm_source));
+                }
+            } else {
+                return Err(format!("Cannot read wasm file {:?}", wasm_source));
+            }
+        } else {
+            cp(&wasm_source, &wasm_dest, false)?;
+        }
+        if config.brotli {
+            brotli_compress(&wasm_dest);
+        }
     }
     // generate html file
     let index_path = app_dir.join("index.html");
@@ -712,4 +810,53 @@ pub fn start_wasm_server(root: PathBuf, lan: bool, port: u16) {
     })
     .join()
     .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bindgen_config(split: bool) -> WasmConfig {
+        WasmConfig {
+            strip: false,
+            lan: false,
+            port: None,
+            small_fonts: false,
+            brotli: false,
+            bindgen: true,
+            split,
+        }
+    }
+
+    #[test]
+    fn bindgen_html_uses_named_wasm_by_default() {
+        let html = generate_html("demo_app", &bindgen_config(false));
+        assert!(html.contains("fetch('./demo_app.wasm')"));
+        assert!(html.contains("import('./bindgen.js')"));
+    }
+
+    #[test]
+    fn bindgen_html_uses_split_main_module() {
+        let html = generate_html("demo_app", &bindgen_config(true));
+        assert!(html.contains("fetch('./main.wasm')"));
+        assert!(html.contains("import('./main.js')"));
+    }
+
+    #[test]
+    fn split_requires_bindgen() {
+        let config = WasmConfig {
+            strip: false,
+            lan: false,
+            port: None,
+            small_fonts: false,
+            brotli: false,
+            bindgen: false,
+            split: true,
+        };
+        let args = vec!["-p".to_string(), "demo_app".to_string()];
+        match build(config, &args) {
+            Ok(_) => panic!("expected split+no-bindgen to fail"),
+            Err(error) => assert!(error.contains("--split requires --bindgen")),
+        }
+    }
 }
