@@ -35,6 +35,7 @@ pub struct GlRenderBridge {
     pub(crate) inner: crate::os::apple::metal::EaglRenderBridge,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl GlRenderBridge {
     /// Make this GL context current on the calling thread.
     pub fn make_current(&self) {
@@ -49,6 +50,19 @@ impl GlRenderBridge {
     /// GL API type (GL on macOS, GLES on Linux/Android/Windows).
     pub fn gl_api(&self) -> GlApi {
         self.inner.gl_api()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl GlRenderBridge {
+    pub fn make_current(&self) {}
+
+    pub fn get_proc_address(&self, _name: &str) -> *const c_void {
+        std::ptr::null()
+    }
+
+    pub fn gl_api(&self) -> GlApi {
+        GlApi::GLES
     }
 }
 
