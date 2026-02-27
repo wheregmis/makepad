@@ -180,15 +180,22 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
     if config.split && !config.bindgen {
         return Err("--split requires --bindgen for wasm-split compatibility".into());
     }
-    let cwd = std::env::current_dir().unwrap();
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Unable to determine current directory: {:?}", e))?;
     if config.bindgen {
-        shell_env_cap(&[], &cwd, "wasm-bindgen", &["--version"]).map_err(|_| {
-            "Missing `wasm-bindgen` CLI. Install it with: cargo makepad wasm install-cli-tools".to_string()
+        shell_env_cap(&[], &cwd, "wasm-bindgen", &["--version"]).map_err(|e| {
+            format!(
+                "Missing `wasm-bindgen` CLI. Install it with: cargo makepad wasm install-cli-tools\nError details: {}",
+                e
+            )
         })?;
     }
     if config.split {
-        shell_env_cap(&[], &cwd, "wasm-split", &["--version"]).map_err(|_| {
-            "Missing `wasm-split` CLI. Install it with: cargo makepad wasm install-cli-tools".to_string()
+        shell_env_cap(&[], &cwd, "wasm-split", &["--version"]).map_err(|e| {
+            format!(
+                "Missing `wasm-split` CLI. Install it with: cargo makepad wasm install-cli-tools\nError details: {}",
+                e
+            )
         })?;
     }
 

@@ -1,7 +1,10 @@
 use crate::makepad_shell::*;
 
+const WASM_BINDGEN_CLI_VERSION: &str = "0.2.104";
+
 pub fn install_cli_tools() -> Result<(), String> {
-    let cwd = std::env::current_dir().unwrap();
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Unable to determine current directory: {:?}", e))?;
     println!("Installing wasm CLI tools (wasm-bindgen-cli, wasm-split-cli)");
     shell_env(
         &[],
@@ -12,7 +15,7 @@ pub fn install_cli_tools() -> Result<(), String> {
             "--locked",
             "wasm-bindgen-cli",
             "--version",
-            "0.2.104",
+            WASM_BINDGEN_CLI_VERSION,
         ],
     )?;
     shell_env(&[], &cwd, "cargo", &["install", "--locked", "wasm-split-cli"])?;
