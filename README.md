@@ -99,6 +99,8 @@ For built-in maps and voice support, download the assets first:
 
 ```bash
 cargo makepad wasm install-toolchain
+# or only install wasm CLI helpers if toolchain is already set up
+# cargo makepad wasm install-cli-tools
 ```
 
 2. Run an example:

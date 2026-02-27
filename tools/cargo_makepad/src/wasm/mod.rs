@@ -39,6 +39,7 @@ pub fn handle_wasm(mut args: &[String]) -> Result<(), String> {
     match args[0].as_ref() {
         "rustup-install-toolchain" => sdk::rustup_toolchain_install(),
         "install-toolchain" => sdk::rustup_toolchain_install(),
+        "install-cli-tools" => sdk::install_cli_tools(),
         "build" => {
             compile::build(config, &args[1..])?;
             Ok(())
