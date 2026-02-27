@@ -50,12 +50,12 @@ Web is first-class when all are true:
 
 ## Implementation Plan
 
-## Phase 0 — Baseline and acceptance criteria (1 week)
+### Phase 0 — Baseline and acceptance criteria (1 week)
 - Add and maintain a **web support matrix** (rendering/input/audio/network/storage/media/etc.) with status: done / partial / blocked.
 - Define acceptance criteria for “web-ready” examples (splash + at least one input-heavy + one media/network example).
 - Add a tracking issue checklist linked to file-level tasks.
 
-## Phase 1 — Close core runtime TODOs (2–4 weeks)
+### Phase 1 — Close core runtime TODOs (2–4 weeks)
 1. Implement `use_audio_inputs` in `platform/src/os/web/web_audio.rs`:
    - microphone device selection + stream lifecycle,
    - permission integration reuse (`FromWasmCheckPermission` / `FromWasmRequestPermission` flow),
@@ -64,12 +64,12 @@ Web is first-class when all are true:
 3. Replace HTTP body decode placeholder in `platform/src/os/web/web.js` with content-type aware binary/text handling.
 4. Wire focus/blur event dispatch and either validate or remove legacy touch overlay code path.
 
-## Phase 2 — Web quality gates and tests (1–2 weeks)
+### Phase 2 — Web quality gates and tests (1–2 weeks)
 - Add wasm build checks for selected examples in CI.
 - Add smoke tests for startup + basic input + resize + audio output path.
 - Add targeted tests around newly implemented paths (audio input, depth target render pass behavior, HTTP request body handling).
 
-## Phase 3 — Tooling and DX polish (1–2 weeks)
+### Phase 3 — Tooling and DX polish (1–2 weeks)
 - Add `cargo makepad wasm doctor` (or equivalent) to validate:
   - rust target installation,
   - required tool binaries,
@@ -77,7 +77,7 @@ Web is first-class when all are true:
 - Improve error messages in wasm run/build for missing target/dependencies.
 - Document local and production serving requirements (COEP/COOP/CORS/caching).
 
-## Phase 4 — Documentation and release readiness (1 week)
+### Phase 4 — Documentation and release readiness (1 week)
 - Update `README.md` web section with:
   - quickstart,
   - support matrix link,
