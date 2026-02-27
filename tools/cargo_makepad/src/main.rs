@@ -45,6 +45,7 @@ fn show_help() {
         "       --brotli                                  Use brotli to compress the wasm file"
     );
     println!("       --bindgen                                 Enable wasm-bindgen compatibility");
+    println!("       --split                                   Split wasm into lazy-loaded chunks (requires --bindgen and wasm-split)");
     println!();
     println!("Apple iOS/TVOs Commands:");
     println!();

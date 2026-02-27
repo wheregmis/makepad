@@ -105,6 +105,8 @@ cargo makepad wasm install-toolchain
 
 ```bash
 cargo makepad wasm run -p makepad-example-splash --release
+# optional: split output into lazy-loaded chunks (requires wasm-split + --bindgen)
+# cargo makepad wasm --bindgen --split run -p makepad-example-splash --release
 ```
 
 3. Open:

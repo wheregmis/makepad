@@ -19,9 +19,15 @@ pub struct WasmConfig {
     pub small_fonts: bool,
     pub brotli: bool,
     pub bindgen: bool,
+    pub split: bool,
 }
 
 pub fn generate_html(wasm: &str, config: &WasmConfig) -> String {
+    let wasm_file = if config.bindgen && config.split {
+        "main"
+    } else {
+        wasm
+    };
     let init = if config.bindgen {
         format!(
             "
@@ -30,7 +36,7 @@ pub fn generate_html(wasm: &str, config: &WasmConfig) -> String {
     
             let env = {{}};
             let set_wasm = init_env(env);
-            let module = await WebAssembly.compileStreaming(fetch('./{wasm}.wasm'))
+            let module = await WebAssembly.compileStreaming(fetch('./{wasm_file}.wasm'))
             let wasm = await init({{module_or_path: module}}, env);
             set_wasm(wasm);
 
@@ -171,6 +177,9 @@ pub fn cp_brotli(
 
 pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, String> {
     let build_crate = get_build_crate_from_args(args)?;
+    if config.split && !config.bindgen {
+        return Err("--split requires --bindgen for wasm-split compatibility".into());
+    }
 
     let base_args = &[
         "run",
@@ -433,23 +442,63 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
         build_dir.join(format!("{}.wasm", build_crate))
     };
 
-    let wasm_dest = app_dir.join(format!("{}.wasm", build_crate));
-    if config.strip {
-        if let Ok(data) = fs::read(&wasm_source) {
-            if let Ok(strip) = wasm_strip_debug(&data) {
-                fs::write(&wasm_dest, strip)
-                    .map_err(|e| format!("Can't write file {:?} {:?} ", wasm_dest, e))?;
-            } else {
-                return Err(format!("Cannot parse wasm {:?}", wasm_source));
+    if config.split {
+        let main_module = app_dir.join("main.js");
+        fs::write(&main_module, "export { initSync } from './bindgen.js';\n")
+            .map_err(|e| format!("Can't write {:?} {:?} ", main_module, e))?;
+        shell(
+            &app_dir,
+            "wasm-split",
+            &[&wasm_source.to_string_lossy(), "."],
+        )?;
+        if config.strip {
+            for entry in
+                fs::read_dir(&app_dir).map_err(|e| format!("Can't read {:?} {:?}", app_dir, e))?
+            {
+                let entry =
+                    entry.map_err(|e| format!("Can't read output entry {:?} {:?}", app_dir, e))?;
+                let path = entry.path();
+                if !matches!(path.extension().and_then(|v| v.to_str()), Some("wasm")) {
+                    continue;
+                }
+                let data = fs::read(&path).map_err(|e| format!("Cannot read wasm file {:?} {:?}", path, e))?;
+                let strip = wasm_strip_debug(&data)
+                    .map_err(|_| format!("Cannot parse wasm {:?}", path))?;
+                fs::write(&path, strip)
+                    .map_err(|e| format!("Can't write file {:?} {:?} ", path, e))?;
             }
-        } else {
-            return Err(format!("Cannot read wasm file {:?}", wasm_source));
+        }
+        if config.brotli {
+            for entry in
+                fs::read_dir(&app_dir).map_err(|e| format!("Can't read {:?} {:?}", app_dir, e))?
+            {
+                let entry =
+                    entry.map_err(|e| format!("Can't read output entry {:?} {:?}", app_dir, e))?;
+                let path = entry.path();
+                if matches!(path.extension().and_then(|v| v.to_str()), Some("wasm" | "js")) {
+                    brotli_compress(&path);
+                }
+            }
         }
     } else {
-        cp(&wasm_source, &wasm_dest, false)?;
-    }
-    if config.brotli {
-        brotli_compress(&wasm_dest);
+        let wasm_dest = app_dir.join(format!("{}.wasm", build_crate));
+        if config.strip {
+            if let Ok(data) = fs::read(&wasm_source) {
+                if let Ok(strip) = wasm_strip_debug(&data) {
+                    fs::write(&wasm_dest, strip)
+                        .map_err(|e| format!("Can't write file {:?} {:?} ", wasm_dest, e))?;
+                } else {
+                    return Err(format!("Cannot parse wasm {:?}", wasm_source));
+                }
+            } else {
+                return Err(format!("Cannot read wasm file {:?}", wasm_source));
+            }
+        } else {
+            cp(&wasm_source, &wasm_dest, false)?;
+        }
+        if config.brotli {
+            brotli_compress(&wasm_dest);
+        }
     }
     // generate html file
     let index_path = app_dir.join("index.html");
@@ -712,4 +761,33 @@ pub fn start_wasm_server(root: PathBuf, lan: bool, port: u16) {
     })
     .join()
     .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bindgen_config(split: bool) -> WasmConfig {
+        WasmConfig {
+            strip: false,
+            lan: false,
+            port: None,
+            small_fonts: false,
+            brotli: false,
+            bindgen: true,
+            split,
+        }
+    }
+
+    #[test]
+    fn bindgen_html_uses_named_wasm_by_default() {
+        let html = generate_html("demo_app", &bindgen_config(false));
+        assert!(html.contains("fetch('./demo_app.wasm')"));
+    }
+
+    #[test]
+    fn bindgen_html_uses_split_main_module() {
+        let html = generate_html("demo_app", &bindgen_config(true));
+        assert!(html.contains("fetch('./main.wasm')"));
+    }
 }

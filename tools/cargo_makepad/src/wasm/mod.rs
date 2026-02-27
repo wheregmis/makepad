@@ -10,6 +10,7 @@ pub fn handle_wasm(mut args: &[String]) -> Result<(), String> {
         port: None,
         small_fonts: false,
         bindgen: false,
+        split: false,
     };
 
     // pull out options
@@ -27,6 +28,8 @@ pub fn handle_wasm(mut args: &[String]) -> Result<(), String> {
             config.lan = true;
         } else if let Some(_) = v.strip_prefix("--bindgen") {
             config.bindgen = true;
+        } else if let Some(_) = v.strip_prefix("--split") {
+            config.split = true;
         } else {
             args = &args[i..];
             break;
