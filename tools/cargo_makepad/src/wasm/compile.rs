@@ -175,6 +175,22 @@ pub fn cp_brotli(
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+enum WasmSplitCmd {
+    LegacyWasmSplit,
+    CliSplitSubcommand,
+}
+
+fn resolve_wasm_split_cmd(cwd: &PathBuf) -> Result<WasmSplitCmd, String> {
+    if shell_env_cap(&[], cwd, "wasm-split", &["--help"]).is_ok() {
+        return Ok(WasmSplitCmd::LegacyWasmSplit);
+    }
+    if shell_env_cap(&[], cwd, "wasm-split-cli", &["split", "--help"]).is_ok() {
+        return Ok(WasmSplitCmd::CliSplitSubcommand);
+    }
+    Err("Neither `wasm-split` nor `wasm-split-cli split` was found in PATH.".to_string())
+}
+
 pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, String> {
     let build_crate = get_build_crate_from_args(args)?;
     if config.split && !config.bindgen {
@@ -190,14 +206,16 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
             )
         })?;
     }
-    if config.split {
-        shell_env_cap(&[], &cwd, "wasm-split", &["--version"]).map_err(|e| {
+    let wasm_split_cmd = if config.split {
+        Some(resolve_wasm_split_cmd(&cwd).map_err(|e| {
             format!(
                 "Missing `wasm-split` CLI. Install it with: cargo makepad wasm install-cli-tools\nError details: {}",
                 e
             )
-        })?;
-    }
+        })?)
+    } else {
+        None
+    };
 
     let base_args = &[
         "run",
@@ -416,6 +434,7 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
             }
         }
     }
+    let original_wasm_source = build_dir.join(format!("{}.wasm", build_crate));
     let wasm_source = if config.bindgen {
         shell(
             build_dir.as_path(),
@@ -464,11 +483,21 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
         let main_module = app_dir.join("main.js");
         fs::write(&main_module, "export { initSync } from './bindgen.js';\n")
             .map_err(|e| format!("Can't write {:?} {:?} ", main_module, e))?;
-        shell(
-            &app_dir,
-            "wasm-split",
-            &[&wasm_source.to_string_lossy(), "."],
-        )?;
+        let wasm_split_cmd = wasm_split_cmd.unwrap_or(WasmSplitCmd::LegacyWasmSplit);
+        let wasm_source_str = wasm_source.to_string_lossy().to_string();
+        let original_wasm_source_str = original_wasm_source.to_string_lossy().to_string();
+        match wasm_split_cmd {
+            WasmSplitCmd::LegacyWasmSplit => {
+                shell(&app_dir, "wasm-split", &[&wasm_source_str, "."])?;
+            }
+            WasmSplitCmd::CliSplitSubcommand => {
+                shell(
+                    &app_dir,
+                    "wasm-split-cli",
+                    &["split", &original_wasm_source_str, &wasm_source_str, "."],
+                )?;
+            }
+        }
         if config.strip {
             for entry in
                 fs::read_dir(&app_dir).map_err(|e| format!("Can't read {:?} {:?}", app_dir, e))?
