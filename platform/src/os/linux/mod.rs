@@ -29,6 +29,8 @@ pub(crate) mod gl_video_upload;
 pub mod libc_sys;
 pub mod module_loader;
 pub mod opengl;
+#[cfg(not(any(target_env = "ohos", target_os = "android")))]
+pub mod system_fonts;
 #[cfg(use_vulkan)]
 pub mod vulkan;
 #[cfg(use_vulkan)]

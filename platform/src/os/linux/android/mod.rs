@@ -13,3 +13,4 @@ pub mod android_network;
 pub mod android_video_playback;
 pub mod ndk_sys;
 pub mod ndk_utils;
+pub mod system_fonts;
