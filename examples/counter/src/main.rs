@@ -30,12 +30,12 @@ script_mod! {
                             counter_label := Label{
                                 text: "Count: " + state.counter
                                 draw_text.text_style.font_size: 24
-                                draw_text.color: if state.is_light_theme #x222222 else #xfff
+                                draw_text.color: mod.theme.color_label_inner
                             }
                             theme_label := Label{
                                 text: if state.is_light_theme "Theme: Light" else "Theme: Dark"
                                 draw_text.text_style.font_size: 16
-                                draw_text.color: if state.is_light_theme #x444444 else #xdddddd
+                                draw_text.color: mod.theme.color_label_inner_inactive
                             }
                         }
                     }
