@@ -1,7 +1,12 @@
 use {
     crate::{
-        animator::*, makepad_derive_widget::*, makepad_draw::*, scroll_bars::ScrollBars,
-        scroll_shadow::DrawScrollShadow, widget::*,
+        animator::*,
+        makepad_derive_widget::*,
+        makepad_draw::*,
+        scroll_bars::ScrollBars,
+        scroll_shadow::DrawScrollShadow,
+        touch_activation::{TouchActivation, TouchActivationEvent},
+        widget::*,
     },
     std::collections::HashSet,
 };
@@ -418,6 +423,8 @@ pub struct FileTreeNode {
     hover: f32,
     #[live]
     active: f32,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 #[derive(Script, WidgetRef, WidgetSet, WidgetRegister)]
@@ -632,7 +639,45 @@ impl FileTreeNode {
         if self.animator_handle_event(cx, event).must_redraw() {
             self.draw_bg.redraw(cx);
         }
-        match event.hits(cx, self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(_) => {
+                self.animator_play(cx, ids!(hover.on));
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if release.is_over && release.was_tap {
+                    self.animator_play(cx, ids!(select.on));
+                    if self.is_folder {
+                        if self.animator_in_state(cx, ids!(open.on)) {
+                            self.animator_play(cx, ids!(open.off));
+                            actions.push((node_id, FileTreeNodeAction::Closing));
+                        } else {
+                            self.animator_play(cx, ids!(open.on));
+                            actions.push((node_id, FileTreeNodeAction::Opening));
+                        }
+                    }
+                    actions.push((node_id, FileTreeNodeAction::WasClicked));
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
+
+        match event.hits(cx, area) {
             Hit::FingerHoverIn(_) => {
                 self.animator_play(cx, ids!(hover.on));
             }

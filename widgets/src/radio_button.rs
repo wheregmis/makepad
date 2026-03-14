@@ -2,6 +2,7 @@ use crate::{
     animator::{Animate, Animator, AnimatorAction, AnimatorImpl, Play},
     makepad_derive_widget::*,
     makepad_draw::*,
+    touch_activation::{TouchActivation, TouchActivationEvent},
     widget::*,
 };
 
@@ -340,6 +341,8 @@ pub struct RadioButton {
     #[action_data]
     #[rust]
     action_data: WidgetActionData,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl RadioButton {
@@ -391,7 +394,42 @@ impl Widget for RadioButton {
             self.draw_bg.redraw(cx);
         }
 
-        match event.hits(cx, self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(_) => {
+                if self.animator_in_state(cx, ids!(active.off)) {
+                    self.animator_play(cx, ids!(hover.down));
+                }
+                self.set_key_focus(cx);
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                self.animator_play(cx, ids!(hover.off));
+                if release.is_over
+                    && release.was_tap
+                    && self.animator_in_state(cx, ids!(active.off))
+                {
+                    self.animator_play(cx, ids!(active.on));
+                    cx.widget_action_with_data(&self.action_data, uid, RadioButtonAction::Clicked);
+                }
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
+
+        match event.hits(cx, area) {
             Hit::KeyFocus(_) => {
                 self.animator_play(cx, ids!(focus.on));
             }

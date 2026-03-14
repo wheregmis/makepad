@@ -5,6 +5,7 @@ use {
         makepad_derive_widget::*,
         makepad_draw::*,
         scroll_bar::{ScrollAxis, ScrollBar, ScrollBarAction},
+        touch_activation::TOUCH_ACTIVATION_SLOP,
         widget::*,
         widget_tree::CxWidgetExt,
     },
@@ -449,6 +450,8 @@ pub struct PortalList {
     /// Auto-scroll state during selection
     #[rust]
     select_scroll_state: Option<SelectScrollState>,
+    #[rust]
+    pending_touch_selection: Option<((usize, usize), DVec2)>,
 
     // Pixel-based scrollbar support
     /// Height tree for O(log n) scroll position lookups
@@ -1321,6 +1324,7 @@ impl PortalList {
         self.selection_cursor = None;
         self.is_selecting = false;
         self.select_scroll_state = None;
+        self.pending_touch_selection = None;
 
         // Clear selection on all items
         for item in self.items.values() {
@@ -1985,20 +1989,30 @@ impl Widget for PortalList {
                     // Handle selection when selectable, but not if clicking on interactive items
                     let on_interactive = self.point_hits_interactive_item(cx, fe.abs);
                     if self.selectable && fe.is_primary_hit() && !on_interactive {
-                        let hit = self.hit_test_selection(cx, fe.abs);
-                        if let Some((item_id, char_idx)) = hit {
+                        if fe.device.is_touch() {
                             cx.set_key_focus(self.area);
-                            if fe.device.is_touch() {
-                                cx.hide_clipboard_actions();
+                            cx.hide_clipboard_actions();
+                            self.pending_touch_selection =
+                                self.hit_test_selection(cx, fe.abs).map(|hit| (hit, fe.abs));
+                            self.scroll_state = ScrollState::Drag {
+                                samples: vec![ScrollSample {
+                                    abs: fe.abs.index(vi),
+                                    time: fe.time,
+                                }],
+                            };
+                        } else {
+                            let hit = self.hit_test_selection(cx, fe.abs);
+                            if let Some((item_id, char_idx)) = hit {
+                                cx.set_key_focus(self.area);
+                                self.selection_anchor = Some((item_id, char_idx));
+                                self.selection_cursor = Some((item_id, char_idx));
+                                self.is_selecting = true;
+                                self.select_scroll_state = Some(SelectScrollState {
+                                    next_frame: cx.new_next_frame(),
+                                    last_abs: fe.abs,
+                                });
+                                self.update_item_selections(cx);
                             }
-                            self.selection_anchor = Some((item_id, char_idx));
-                            self.selection_cursor = Some((item_id, char_idx));
-                            self.is_selecting = true;
-                            self.select_scroll_state = Some(SelectScrollState {
-                                next_frame: cx.new_next_frame(),
-                                last_abs: fe.abs,
-                            });
-                            self.update_item_selections(cx);
                         }
                     } else if self.drag_scrolling && fe.is_primary_hit() && !on_interactive {
                         self.scroll_state = ScrollState::Drag {
@@ -2007,6 +2021,23 @@ impl Widget for PortalList {
                                 time: fe.time,
                             }],
                         };
+                    }
+                }
+                Hit::FingerLongPress(lp) if lp.device.is_touch() => {
+                    if self.selectable {
+                        if let Some((fallback_hit, _)) = self.pending_touch_selection.take() {
+                            let (item_id, char_idx) =
+                                self.hit_test_selection(cx, lp.abs).unwrap_or(fallback_hit);
+                            self.selection_anchor = Some((item_id, char_idx));
+                            self.selection_cursor = Some((item_id, char_idx));
+                            self.is_selecting = true;
+                            self.scroll_state = ScrollState::Stopped;
+                            self.select_scroll_state = Some(SelectScrollState {
+                                next_frame: cx.new_next_frame(),
+                                last_abs: lp.abs,
+                            });
+                            self.update_item_selections(cx);
+                        }
                     }
                 }
                 Hit::FingerMove(e) => {
@@ -2026,6 +2057,13 @@ impl Widget for PortalList {
                             self.update_item_selections(cx);
                         }
                     } else {
+                        if let Some((_, start_abs)) = self.pending_touch_selection.as_ref() {
+                            if e.device.is_touch()
+                                && e.abs.distance(start_abs) > TOUCH_ACTIVATION_SLOP
+                            {
+                                self.pending_touch_selection = None;
+                            }
+                        }
                         // Don't override cursor when over interactive items (they set their own)
                         if !self.point_hits_interactive_item(cx, e.abs) {
                             cx.set_cursor(MouseCursor::Default);
@@ -2046,6 +2084,7 @@ impl Widget for PortalList {
                     }
                 }
                 Hit::FingerUp(fe) if fe.is_primary_hit() => {
+                    self.pending_touch_selection = None;
                     // End selection if we were selecting
                     if self.is_selecting {
                         self.is_selecting = false;

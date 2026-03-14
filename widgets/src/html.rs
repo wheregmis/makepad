@@ -4,6 +4,7 @@ use crate::{
     makepad_draw::*,
     makepad_html::*,
     text_flow::TextFlow,
+    touch_activation::{TouchActivation, TouchActivationEvent},
     widget::*,
     WidgetMatchEvent,
 };
@@ -623,6 +624,8 @@ pub struct HtmlLink {
     pub text: ArcStringMut,
     #[live]
     pub url: String,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl ScriptHook for HtmlLink {
@@ -637,7 +640,7 @@ impl ScriptHook for HtmlLink {
                         self.url = attr.into();
                         break;
                     }
-                    _ => { }
+                    _ => {}
                 }
             }
         }
@@ -661,6 +664,55 @@ impl Widget for HtmlLink {
         }
 
         self.widget_match_event(cx, event, scope);
+
+        let main_area = self.area();
+        let drawn_areas = self.drawn_areas.clone();
+        match self.touch_activation.handle_event(event, main_area, |abs| {
+            (main_area.is_valid(cx) && main_area.rect(cx).contains(abs))
+                || drawn_areas
+                    .iter()
+                    .any(|area| area.is_valid(cx) && area.rect(cx).contains(abs))
+        }) {
+            TouchActivationEvent::Started(_) => {
+                if self.grab_key_focus {
+                    cx.set_key_focus(main_area);
+                }
+                self.animator_play(cx, ids!(hover.pressed));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => {
+                cx.widget_action(
+                    self.widget_uid(),
+                    HtmlLinkAction::SecondaryClicked {
+                        url: self.url.clone(),
+                        key_modifiers: Default::default(),
+                    },
+                );
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                self.animator_play(cx, ids!(hover.off));
+                if release.is_over && release.was_tap {
+                    cx.widget_action(
+                        self.widget_uid(),
+                        HtmlLinkAction::Clicked {
+                            url: self.url.clone(),
+                            key_modifiers: release.modifiers,
+                        },
+                    );
+                }
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
 
         for area in self.drawn_areas.clone().into_iter() {
             match event.hits(cx, area) {

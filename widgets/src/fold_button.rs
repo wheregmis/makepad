@@ -2,6 +2,7 @@ use crate::{
     animator::{Animate, Animator, AnimatorAction, AnimatorImpl, Play},
     makepad_derive_widget::*,
     makepad_draw::*,
+    touch_activation::{TouchActivation, TouchActivationEvent},
     widget::*,
 };
 
@@ -120,6 +121,8 @@ pub struct FoldButton {
     #[action_data]
     #[rust]
     action_data: WidgetActionData,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl FoldButton {
@@ -192,7 +195,49 @@ impl Widget for FoldButton {
             self.draw_bg.redraw(cx);
         }
 
-        match event.hits(cx, self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(_) => {
+                self.animator_play(cx, ids!(hover.on));
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if release.is_over && release.was_tap {
+                    if self.animator_in_state(cx, ids!(active.on)) {
+                        self.animator_play(cx, ids!(active.off));
+                        cx.widget_action_with_data(
+                            &self.action_data,
+                            uid,
+                            FoldButtonAction::Closing,
+                        )
+                    } else {
+                        self.animator_play(cx, ids!(active.on));
+                        cx.widget_action_with_data(
+                            &self.action_data,
+                            uid,
+                            FoldButtonAction::Opening,
+                        )
+                    }
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
+
+        match event.hits(cx, area) {
             Hit::FingerDown(_fe) => {
                 if self.animator_in_state(cx, ids!(active.on)) {
                     self.animator_play(cx, ids!(active.off));

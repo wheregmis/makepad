@@ -3,6 +3,7 @@ use crate::{
     makepad_derive_widget::*,
     makepad_draw::*,
     makepad_script::ScriptFnRef,
+    touch_activation::{TouchActivation, TouchActivationEvent},
     widget::*,
     widget_async::{CxWidgetToScriptCallExt, ScriptAsyncResult},
 };
@@ -393,19 +394,10 @@ pub struct Button {
     /// Set the long-press handling behavior of this button.
     /// * If `false` (default), the button will ignore long-press events
     ///   and will never emit [`ButtonAction::LongPressed`].
-    ///   * Also, the button logic will *not* call [`FingerUpEvent::was_tap()`]
-    ///     to check if the button press was a short tap.
-    ///     This means that this button will consider itself to be clicked
-    ///     (and thus emit a [`ButtonAction::Clicked`] event)
-    ///     if the finger-up/release event occurs within the button area,
-    ///     *regardless* of how long the button was pressed down before it was released.
     /// * If `true`, the button will respond to a long-press event
     ///   by emitting [`ButtonAction::LongPressed`], which can only occur on
     ///   mobile platforms that support a *native* long press event.
-    ///   * Also, the button will only consider itself to be clicked
-    ///     (and thus emit [`ButtonAction::Clicked`]) if [`FingerUpEvent::was_tap()`] returns `true`,
-    ///     meaning that a long press did *not* occur and that the button was released over the button area
-    ///     within a short time frame (~0.5 seconds) after the initial down press.
+    /// Touch activation still requires a valid tap-up regardless of this setting.
     #[live]
     pub enable_long_press: bool,
 
@@ -424,6 +416,8 @@ pub struct Button {
     #[action_data]
     #[rust]
     action_data: WidgetActionData,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl Widget for Button {
@@ -483,10 +477,88 @@ impl Widget for Button {
             self.draw_bg.redraw(cx);
         }
 
+        let area = self.draw_bg.area();
+        if self.enabled {
+            match self
+                .touch_activation
+                .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+            {
+                TouchActivationEvent::Started(info) => {
+                    if self.grab_key_focus {
+                        cx.set_key_focus(area);
+                    }
+                    cx.widget_action_with_data(
+                        &self.action_data,
+                        uid,
+                        ButtonAction::Pressed(info.modifiers),
+                    );
+                    self.animator_play(cx, ids!(hover.down));
+                    self.set_key_focus(cx);
+                    return;
+                }
+                TouchActivationEvent::LongPress(_) => {
+                    if self.enable_long_press {
+                        cx.widget_action_with_data(
+                            &self.action_data,
+                            uid,
+                            ButtonAction::LongPressed,
+                        );
+                    }
+                    return;
+                }
+                TouchActivationEvent::Released(release) => {
+                    let was_clicked = release.is_over && release.was_tap;
+                    if was_clicked {
+                        cx.widget_action_with_data(
+                            &self.action_data,
+                            uid,
+                            ButtonAction::Clicked(release.modifiers),
+                        );
+                        cx.widget_to_script_call(
+                            uid,
+                            NIL,
+                            self.source.clone(),
+                            self.on_click.clone(),
+                            &[],
+                        );
+                        if self.reset_hover_on_click {
+                            self.animator_cut(cx, ids!(hover.off));
+                        } else {
+                            self.animator_play(cx, ids!(hover.off));
+                        }
+                    } else {
+                        cx.widget_action_with_data(
+                            &self.action_data,
+                            uid,
+                            ButtonAction::Released(release.modifiers),
+                        );
+                        self.animator_play(cx, ids!(hover.off));
+                    }
+                    return;
+                }
+                TouchActivationEvent::Canceled(info) => {
+                    cx.widget_action_with_data(
+                        &self.action_data,
+                        uid,
+                        ButtonAction::Released(info.modifiers),
+                    );
+                    self.animator_play(cx, ids!(hover.off));
+                    return;
+                }
+                TouchActivationEvent::None => {
+                    if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                        return;
+                    }
+                }
+            }
+        } else if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+            return;
+        }
+
         // The button only handles hits when it's visible and enabled.
         // If it's not enabled, we still show the button, but we set
         // the NotAllowed mouse cursor upon hover instead of the Hand cursor.
-        match event.hits(cx, self.draw_bg.area()) {
+        match event.hits(cx, area) {
             Hit::KeyFocus(_) => {
                 self.animator_play(cx, ids!(focus.on));
             }

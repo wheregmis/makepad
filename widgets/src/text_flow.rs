@@ -4,7 +4,13 @@ use crate::makepad_draw::text::{
     selection::{Cursor, Selection},
 };
 use crate::{
-    animator::*, makepad_derive_widget::*, makepad_draw::*, widget::*, widget_tree::CxWidgetExt,
+    animator::*,
+    event::TouchState,
+    makepad_derive_widget::*,
+    makepad_draw::*,
+    touch_activation::{TouchActivation, TouchActivationEvent},
+    widget::*,
+    widget_tree::CxWidgetExt,
 };
 use std::rc::Rc;
 
@@ -679,6 +685,10 @@ pub struct TextFlow {
     /// Whether currently dragging to select
     #[rust]
     is_selecting: bool,
+    #[rust]
+    touch_select_uid: Option<u64>,
+    #[rust]
+    touch_select_start_abs: DVec2,
 
     // Streaming text animation fields
     #[rust]
@@ -925,7 +935,75 @@ impl Widget for TextFlow {
             return;
         }
 
-        match event.hits(cx, self.area) {
+        let area = self.area;
+        if let Event::TouchUpdate(update) = event {
+            if let Some(active_uid) = self.touch_select_uid {
+                if let Some(touch) = update.touches.iter().find(|touch| touch.uid == active_uid) {
+                    match touch.state {
+                        TouchState::Move if self.is_selecting => {
+                            if let Some(idx) = self.selection_tracker.point_to_index(cx, touch.abs)
+                            {
+                                if self.selection_cursor != idx {
+                                    self.selection_cursor = idx;
+                                    self.propagate_selection_to_children();
+                                    self.redraw(cx);
+                                }
+                            }
+                        }
+                        TouchState::Move => {
+                            if touch.abs.distance(&self.touch_select_start_abs)
+                                > crate::touch_activation::TOUCH_ACTIVATION_SLOP
+                            {
+                                self.touch_select_uid = None;
+                            }
+                        }
+                        TouchState::Stop => {
+                            self.touch_select_uid = None;
+                            self.is_selecting = false;
+                            let has_selection = self.has_selection();
+                            if has_selection {
+                                let selection_rect = self.selection_clipboard_rect(cx);
+                                cx.show_clipboard_actions(true, selection_rect, cx.keyboard_shift);
+                            } else {
+                                cx.hide_clipboard_actions();
+                            }
+                        }
+                        TouchState::Start | TouchState::Stable => {}
+                    }
+                    return;
+                }
+            }
+
+            for touch in &update.touches {
+                if touch.state != TouchState::Start || !touch.handled.get().is_empty() {
+                    continue;
+                }
+                if !area.rect(cx).contains(touch.abs) {
+                    continue;
+                }
+                touch.handled.set(area);
+                self.touch_select_uid = Some(touch.uid);
+                self.touch_select_start_abs = touch.abs;
+                cx.set_key_focus(area);
+                cx.hide_clipboard_actions();
+                return;
+            }
+            return;
+        } else if let Event::LongPress(lp) = event {
+            if self.touch_select_uid == Some(lp.uid) {
+                cx.set_key_focus(area);
+                if let Some(idx) = self.selection_tracker.point_to_index(cx, lp.abs) {
+                    self.selection_anchor = idx;
+                    self.selection_cursor = idx;
+                    self.is_selecting = true;
+                    self.redraw(cx);
+                }
+                return;
+            }
+            return;
+        }
+
+        match event.hits(cx, area) {
             Hit::FingerHoverIn(_) => {
                 cx.set_cursor(MouseCursor::Text);
             }
@@ -1152,6 +1230,7 @@ impl TextFlow {
         self.selection_anchor = 0;
         self.selection_cursor = 0;
         self.is_selecting = false;
+        self.touch_select_uid = None;
         for (widget, _, _) in &self.widget_text_entries {
             widget.selection_clear();
         }
@@ -1711,6 +1790,8 @@ pub struct TextFlowLink {
 
     #[rust]
     action_data: WidgetActionData,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl WidgetNode for TextFlowLink {
@@ -1760,6 +1841,46 @@ impl Widget for TextFlowLink {
                 tf.redraw(cx);
             } else {
                 self.drawn_areas.iter().for_each(|area| area.redraw(cx));
+            }
+        }
+
+        let main_area = self.area();
+        let drawn_areas = self.drawn_areas.clone();
+        match self.touch_activation.handle_event(event, main_area, |abs| {
+            (main_area.is_valid(cx) && main_area.rect(cx).contains(abs))
+                || drawn_areas
+                    .iter()
+                    .any(|area| area.is_valid(cx) && area.rect(cx).contains(abs))
+        }) {
+            TouchActivationEvent::Started(_) => {
+                if self.grab_key_focus {
+                    cx.set_key_focus(self.area());
+                }
+                self.animator_play(cx, ids!(hover.down));
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if release.is_over && release.was_tap {
+                    cx.widget_action_with_data(
+                        &self.action_data,
+                        self.widget_uid(),
+                        TextFlowLinkAction::Clicked {
+                            key_modifiers: release.modifiers,
+                        },
+                    );
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
             }
         }
 

@@ -4,6 +4,7 @@ use {
         makepad_derive_widget::*,
         makepad_draw::*,
         popup_menu::{PopupMenu, PopupMenuAction},
+        touch_activation::{TouchActivation, TouchActivationEvent},
         widget::*,
     },
     std::cell::RefCell,
@@ -401,6 +402,8 @@ pub struct DropDown {
     #[action_data]
     #[rust]
     action_data: WidgetActionData,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 #[derive(Default, Clone)]
@@ -592,7 +595,37 @@ impl Widget for DropDown {
             }
         }
 
-        match event.hits_with_sweep_area(cx, self.draw_bg.area(), self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(_) => {
+                if self.animator_in_state(cx, ids!(disabled.off)) {
+                    cx.set_key_focus(area);
+                    self.animator_play(cx, ids!(hover.down));
+                }
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if self.animator_in_state(cx, ids!(disabled.off))
+                    && release.is_over
+                    && release.was_tap
+                {
+                    self.set_active(cx);
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {}
+        }
+
+        match event.hits_with_sweep_area(cx, area, area) {
             Hit::KeyFocusLost(_) => {
                 self.animator_play(cx, ids!(focus.off));
                 self.set_closed(cx);
@@ -631,7 +664,7 @@ impl Widget for DropDown {
             },
             Hit::FingerDown(fe) if fe.is_primary_hit() => {
                 if self.animator_in_state(cx, ids!(disabled.off)) {
-                    cx.set_key_focus(self.draw_bg.area());
+                    cx.set_key_focus(area);
                     self.animator_play(cx, ids!(hover.down));
                     self.set_active(cx);
                 }

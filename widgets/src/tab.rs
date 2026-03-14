@@ -3,6 +3,7 @@ use crate::{
     makepad_derive_widget::*,
     makepad_draw::*,
     tab_close_button::{TabCloseButton, TabCloseButtonAction},
+    touch_activation::{TouchActivation, TouchActivationEvent},
 };
 
 use crate::makepad_draw::DrawSvgGlyph;
@@ -296,6 +297,8 @@ pub struct Tab {
     walk: Walk,
     #[layout]
     layout: Layout,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 pub enum TabAction {
@@ -349,7 +352,35 @@ impl Tab {
             _ => (),
         };
 
-        match event.hits(cx, self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(_) => {
+                self.animator_play(cx, ids!(hover.on));
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if release.is_over && release.was_tap {
+                    dispatch_action(cx, TabAction::WasPressed);
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(_) => {
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => return,
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
+
+        match event.hits(cx, area) {
             Hit::FingerHoverIn(_) => {
                 self.animator_play(cx, ids!(hover.on));
             }

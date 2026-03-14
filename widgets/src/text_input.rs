@@ -549,6 +549,8 @@ pub struct TextInput {
     /// Skip finger move after long press to prevent selection changes
     #[rust]
     ignore_next_move: bool,
+    #[rust]
+    touch_selection_active: bool,
     /// IME composition tracking - byte index where composition starts
     #[rust]
     composition_start: usize,
@@ -1114,6 +1116,8 @@ impl TextInput {
         cx.hide_text_ime();
         self.composition_start = 0;
         self.composition_end = 0;
+        self.touch_selection_active = false;
+        self.ignore_next_move = false;
         // Only hide clipboard actions on mobile platforms where they're supported
         match cx.os_type() {
             OsType::Android(_) | OsType::Ios(_) => {
@@ -1621,6 +1625,15 @@ impl Widget for TextInput {
                     self.preserved_selection_cursor = Some(cursor);
                 }
 
+                if device.is_touch() {
+                    self.touch_selection_active = false;
+                    self.preserved_selection_cursor = None;
+                    self.set_cursor(cx, cursor, false);
+                    cx.hide_clipboard_actions();
+                    self.animator_play(cx, ids!(hover.down));
+                    return;
+                }
+
                 match tap_count {
                     2 => {
                         self.select_word(cx);
@@ -1653,6 +1666,17 @@ impl Widget for TextInput {
             }
             Hit::FingerUp(fe) => {
                 self.ignore_next_move = false;
+                if fe.device.is_touch() {
+                    if self.touch_selection_active {
+                        let has_selection = !self.selected_text().is_empty();
+                        let selection_rect = self.get_selection_rect(cx);
+                        cx.show_clipboard_actions(has_selection, selection_rect, cx.keyboard_shift);
+                    }
+                    self.touch_selection_active = false;
+                    self.preserved_selection_cursor = None;
+                    self.animator_play(cx, ids!(hover.off));
+                    return;
+                }
 
                 if fe.was_tap() {
                     if let Some(cursor) = self.preserved_selection_cursor.take() {
@@ -1695,6 +1719,7 @@ impl Widget for TextInput {
                     let has_selection = !self.selected_text().is_empty();
                     let selection_rect = self.get_selection_rect(cx);
                     cx.show_clipboard_actions(has_selection, selection_rect, cx.keyboard_shift);
+                    self.touch_selection_active = true;
                 }
 
                 // Skip next move to prevent selection change when finger lifts
@@ -1712,6 +1737,10 @@ impl Widget for TextInput {
                     return;
                 }
 
+                if device.is_touch() && !self.touch_selection_active {
+                    return;
+                }
+
                 // Clear preserved cursor - user is dragging to select
                 self.preserved_selection_cursor = None;
                 self.reset_blink_timer(cx);
@@ -1724,6 +1753,9 @@ impl Widget for TextInput {
                     return;
                 };
                 self.set_cursor(cx, cursor, true);
+                if device.is_touch() {
+                    return;
+                }
                 match tap_count {
                     2 => self.select_word(cx),
                     3 => self.select_all(cx),

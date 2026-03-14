@@ -3,6 +3,7 @@ use crate::{
     button::ButtonAction,
     makepad_derive_widget::*,
     makepad_draw::*,
+    touch_activation::{TouchActivation, TouchActivationEvent},
     widget::*,
 };
 
@@ -173,6 +174,8 @@ pub struct DesktopButton {
     #[redraw]
     #[live]
     draw_bg: DrawQuad,
+    #[rust]
+    touch_activation: TouchActivation,
 }
 
 impl Widget for DesktopButton {
@@ -186,7 +189,42 @@ impl Widget for DesktopButton {
             self.draw_bg.redraw(cx);
         }
 
-        match event.hits(cx, self.draw_bg.area()) {
+        let area = self.draw_bg.area();
+        match self
+            .touch_activation
+            .handle_event(event, area, |abs| area.rect(cx).contains(abs))
+        {
+            TouchActivationEvent::Started(info) => {
+                cx.widget_action(uid, ButtonAction::Pressed(info.modifiers));
+                self.animator_play(cx, ids!(hover.down));
+                return;
+            }
+            TouchActivationEvent::LongPress(_) => {
+                cx.widget_action(uid, ButtonAction::LongPressed);
+                return;
+            }
+            TouchActivationEvent::Released(release) => {
+                if release.is_over && release.was_tap {
+                    cx.widget_action(uid, ButtonAction::Clicked(release.modifiers));
+                } else {
+                    cx.widget_action(uid, ButtonAction::Released(release.modifiers));
+                }
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::Canceled(info) => {
+                cx.widget_action(uid, ButtonAction::Released(info.modifiers));
+                self.animator_play(cx, ids!(hover.off));
+                return;
+            }
+            TouchActivationEvent::None => {
+                if matches!(event, Event::TouchUpdate(_) | Event::LongPress(_)) {
+                    return;
+                }
+            }
+        }
+
+        match event.hits(cx, area) {
             Hit::FingerDown(fe) => {
                 cx.widget_action(uid, ButtonAction::Pressed(fe.modifiers));
                 self.animator_play(cx, ids!(hover.down));
