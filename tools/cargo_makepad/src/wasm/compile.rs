@@ -547,6 +547,22 @@ pub fn cp_brotli(
     Ok(())
 }
 
+fn local_makepad_runtime_asset(dep_name: &str, rel_path: &str) -> Option<PathBuf> {
+    let cargo_makepad_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let makepad_root = cargo_makepad_dir.parent()?.parent()?;
+    let crate_root = match dep_name {
+        "makepad-wasm-bridge" => makepad_root.join("libs/wasm_bridge"),
+        "makepad-platform" => makepad_root.join("platform"),
+        _ => return None,
+    };
+    let candidate = crate_root.join(rel_path);
+    candidate.is_file().then_some(candidate)
+}
+
+fn runtime_asset_source(dep_name: &str, dep_dir: &Path, rel_path: &str) -> PathBuf {
+    local_makepad_runtime_asset(dep_name, rel_path).unwrap_or_else(|| dep_dir.join(rel_path))
+}
+
 const WASM_TARGET_TRIPLE: &str = "wasm32-unknown-unknown";
 const WASM_TARGET_SPEC_FEATURES: &str = "+atomics,+bulk-memory,+mutable-globals";
 const WASM_RUSTFLAGS_THREADED: &str = "-C codegen-units=1 -C debuginfo=0 -C link-arg=--export=__stack_pointer -C link-arg=--compress-relocations -C link-arg=--strip-debug -C link-arg=--shared-memory -C link-arg=--max-memory=2147483648 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base -C opt-level=z";
@@ -682,7 +698,7 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
         // and makepad-platform
         if name == "makepad-wasm-bridge" {
             cp_brotli(
-                &dep_dir.join("src/wasm_bridge.js"),
+                &runtime_asset_source(name, dep_dir, "src/wasm_bridge.js"),
                 &app_dir.join("makepad_wasm_bridge/wasm_bridge.js"),
                 false,
                 config.brotli,
@@ -690,35 +706,35 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
         }
         if name == "makepad-platform" {
             cp_brotli(
-                &dep_dir.join("src/os/web/audio_worklet.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/audio_worklet.js"),
                 &app_dir.join("makepad_platform/audio_worklet.js"),
                 false,
                 config.brotli,
             )?;
 
             cp_brotli(
-                &dep_dir.join("src/os/web/web_gl.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/web_gl.js"),
                 &app_dir.join("makepad_platform/web_gl.js"),
                 false,
                 config.brotli,
             )?;
 
             cp_brotli(
-                &dep_dir.join("src/os/web/web_gpu.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/web_gpu.js"),
                 &app_dir.join("makepad_platform/web_gpu.js"),
                 false,
                 config.brotli,
             )?;
 
             cp_brotli(
-                &dep_dir.join("src/os/web/web_runtime.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/web_runtime.js"),
                 &app_dir.join("makepad_platform/web_runtime.js"),
                 false,
                 config.brotli,
             )?;
 
             if config.bindgen {
-                let jsfile = dep_dir.join("src/os/web/web_worker.js");
+                let jsfile = runtime_asset_source(name, dep_dir, "src/os/web/web_worker.js");
                 let js = std::fs::read_to_string(&jsfile)
                     .map_err(|e| format!("Unable to find web.js {e:?}"))?;
                 let tmp = build_dir.join("web_worker.js");
@@ -738,7 +754,7 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
                 )?;
             } else {
                 cp_brotli(
-                    &dep_dir.join("src/os/web/web_worker.js"),
+                    &runtime_asset_source(name, dep_dir, "src/os/web/web_worker.js"),
                     &app_dir.join("makepad_platform/web_worker.js"),
                     false,
                     config.brotli,
@@ -746,21 +762,21 @@ pub fn build(config: WasmConfig, args: &[String]) -> Result<WasmBuildResult, Str
             }
 
             cp_brotli(
-                &dep_dir.join("src/os/web/web.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/web.js"),
                 &app_dir.join("makepad_platform/web.js"),
                 false,
                 config.brotli,
             )?;
 
             cp_brotli(
-                &dep_dir.join("src/os/web/auto_reload.js"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/auto_reload.js"),
                 &app_dir.join("makepad_platform/auto_reload.js"),
                 false,
                 config.brotli,
             )?;
 
             cp_brotli(
-                &dep_dir.join("src/os/web/full_canvas.css"),
+                &runtime_asset_source(name, dep_dir, "src/os/web/full_canvas.css"),
                 &app_dir.join("makepad_platform/full_canvas.css"),
                 false,
                 config.brotli,
