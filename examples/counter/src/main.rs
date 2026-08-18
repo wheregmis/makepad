@@ -8,8 +8,10 @@ script_mod! {
     use mod.prelude.widgets.*
     let state = {
         counter: 0
+        is_light_theme: true
     }
     mod.state = state
+    mod.theme = mod.themes.light
     startup() do #(App::script_component(vm)){
         ui: Root{
             on_startup:||{ // right now render isnt called automatically yet
@@ -28,8 +30,17 @@ script_mod! {
                             counter_label := Label{
                                 text: "Count: " + state.counter
                                 draw_text.text_style.font_size: 24
+                                draw_text.color: mod.theme.color_label_inner
+                            }
+                            theme_label := Label{
+                                text: if state.is_light_theme "Theme: Light" else "Theme: Dark"
+                                draw_text.text_style.font_size: 16
+                                draw_text.color: mod.theme.color_label_inner_inactive
                             }
                         }
+                    }
+                    theme_button := Button{
+                        text: "Switch Theme"
                     }
                     increment_button := Button{
                         text: "Increment"
@@ -48,6 +59,19 @@ pub struct App {
 
 impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
+        if self.ui.button(cx, ids!(theme_button)).clicked(actions) {
+            script_eval!(cx,{
+                if mod.state.is_light_theme{
+                    mod.state.is_light_theme = false
+                    mod.theme = mod.themes.dark
+                }
+                else{
+                    mod.state.is_light_theme = true
+                    mod.theme = mod.themes.light
+                }
+                ui.main_view.render()
+            });
+        }
         if self.ui.button(cx, ids!(increment_button)).clicked(actions) {
             script_eval!(cx,{
                 mod.state.counter += 1
